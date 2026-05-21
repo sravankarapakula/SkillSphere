@@ -55,6 +55,30 @@ const registerUser = asyncHandler(async (req, res) => {
     });
 });
 
+const getMe = asyncHandler(async (req, res) => {
+
+    const user = await User.findById(req.user._id).select("-password");
+
+    if (!user) {
+        return res.status(404).json({
+            success: false,
+            message: "User not found"
+        });
+    }
+
+    res.status(200).json({
+        success: true,
+        data: {
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            }
+        }
+    });
+});
+
 const loginUser = asyncHandler(async (req, res) => {
 
     const { email, password } = req.body;
@@ -96,5 +120,6 @@ const loginUser = asyncHandler(async (req, res) => {
 
 module.exports = {
     registerUser,
-    loginUser
+    loginUser,
+    getMe
 };

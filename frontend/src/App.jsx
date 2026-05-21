@@ -1,15 +1,114 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { loadUser } from "./redux/slices/authSlice";
+import { FullPageSpinner } from "./components/shared/LoadingSpinner";
 
-function App() {
-  return (
-    <div className="h-screen flex items-center justify-center text-3xl font-bold">
-      SkillSphere Frontend Running
-    </div>
-  )
+// Layouts
+import AuthLayout from "./layouts/AuthLayout";
+import DashboardLayout from "./layouts/DashboardLayout";
+
+// Route guards
+import ProtectedRoute from "./routes/ProtectedRoute";
+import PublicRoute from "./routes/PublicRoute";
+
+// Auth Pages
+import LoginPage from "./pages/auth/LoginPage";
+import RegisterPage from "./pages/auth/RegisterPage";
+
+// Dashboard Pages
+import DashboardPage from "./pages/dashboard/DashboardPage";
+import FreelancerDashboard from "./pages/dashboard/FreelancerDashboard";
+import ClientDashboard from "./pages/dashboard/ClientDashboard";
+import AdminDashboard from "./pages/dashboard/AdminDashboard";
+
+// Profile Pages
+import ProfilePage from "./pages/profile/ProfilePage";
+import EditProfilePage from "./pages/profile/EditProfilePage";
+
+export default function App() {
+    const dispatch = useDispatch();
+    const { token, isLoading, user } = useSelector((state) => state.auth);
+
+    // On mount, if a token exists, verify it by loading the user
+    useEffect(() => {
+        if (token && !user) {
+            dispatch(loadUser());
+        }
+    }, [dispatch, token, user]);
+
+    // Show spinner while initially verifying the token
+    if (token && !user && isLoading) {
+        return <FullPageSpinner />;
+    }
+
+    return (
+        <Routes>
+            {/* Public routes (login, register) — redirect if authenticated */}
+            <Route element={<PublicRoute />}>
+                <Route element={<AuthLayout />}>
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
+                </Route>
+            </Route>
+
+            {/* Protected routes — redirect to login if not authenticated */}
+            <Route element={<ProtectedRoute />}>
+                <Route element={<DashboardLayout />}>
+                    <Route path="/dashboard" element={<DashboardPage />} />
+
+                    {/* Profile routes (freelancer) */}
+                    <Route
+                        element={<ProtectedRoute allowedRoles={["freelancer"]} />}
+                    >
+                        <Route path="/dashboard/profile" element={<ProfilePage />} />
+                        <Route path="/dashboard/profile/edit" element={<EditProfilePage />} />
+                    </Route>
+
+                    {/* Role-specific dashboard views */}
+                    <Route
+                        path="/dashboard/freelancer"
+                        element={
+                            <ProtectedRoute allowedRoles={["freelancer"]}>
+                                <FreelancerDashboard />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route path="/dashboard/client" element={<ClientDashboard />} />
+                    <Route
+                        element={<ProtectedRoute allowedRoles={["admin"]} />}
+                    >
+                        <Route path="/dashboard/admin" element={<AdminDashboard />} />
+                    </Route>
+
+                    {/* Placeholder routes for sidebar links */}
+                    <Route path="/dashboard/projects" element={<ComingSoon title="Projects" />} />
+                    <Route path="/dashboard/proposals" element={<ComingSoon title="Proposals" />} />
+                    <Route path="/dashboard/messages" element={<ComingSoon title="Messages" />} />
+                    <Route path="/dashboard/browse" element={<ComingSoon title="Browse Talent" />} />
+                    <Route path="/dashboard/users" element={<ComingSoon title="User Management" />} />
+                    <Route path="/dashboard/analytics" element={<ComingSoon title="Analytics" />} />
+                    <Route path="/dashboard/settings" element={<ComingSoon title="Settings" />} />
+                </Route>
+            </Route>
+
+            {/* Catch-all redirect */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+    );
 }
 
-export default App
+// Placeholder page for unbuilt routes
+function ComingSoon({ title }) {
+    return (
+        <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
+            <div className="h-16 w-16 rounded-2xl bg-surface-100 flex items-center justify-center mb-4">
+                <span className="text-3xl">🚧</span>
+            </div>
+            <h2 className="text-xl font-bold text-surface-900 mb-2">{title}</h2>
+            <p className="text-sm text-surface-500">
+                This section is under development.
+            </p>
+        </div>
+    );
+}
