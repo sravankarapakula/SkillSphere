@@ -1,16 +1,18 @@
 import { useSelector } from "react-redux";
 import { Navigate, Outlet } from "react-router-dom";
 import { FullPageSpinner } from "../components/shared/LoadingSpinner";
+import { getAccessToken } from "../utils/authStorage";
 
-export default function ProtectedRoute({ allowedRoles }) {
+export default function ProtectedRoute({ allowedRoles, children }) {
     const { user, token, isLoading } = useSelector((state) => state.auth);
+    const accessToken = token || getAccessToken();
 
     if (isLoading) {
         return <FullPageSpinner />;
     }
 
     // Not authenticated — redirect to login
-    if (!token || !user) {
+    if (!accessToken || !user) {
         return <Navigate to="/login" replace />;
     }
 
@@ -19,5 +21,5 @@ export default function ProtectedRoute({ allowedRoles }) {
         return <Navigate to="/dashboard" replace />;
     }
 
-    return <Outlet />;
+    return children || <Outlet />;
 }

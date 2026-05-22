@@ -9,7 +9,8 @@ import toast from "react-hot-toast";
 import {
     HiOutlineUser,
     HiOutlineEnvelope,
-    HiOutlineLockClosed
+    HiOutlineLockClosed,
+    HiOutlineShieldCheck
 } from "react-icons/hi2";
 
 export default function RegisterPage() {
@@ -18,29 +19,49 @@ export default function RegisterPage() {
         email: "",
         password: "",
         confirmPassword: "",
-        role: "client"
+        role: "client",
+        secretCode: ""
     });
     const [errors, setErrors] = useState({});
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const { isLoading, isError, isSuccess, message } = useSelector(
-        (state) => state.auth
-    );
+
+    const { isLoading, isError, isSuccess, message, user } = useSelector(
+    (state) => state.auth
+);
 
     useEffect(() => {
         if (isError && message) {
             toast.error(message);
         }
-        if (isSuccess) {
+
+        if (isSuccess && user) {
             toast.success("Account created successfully!");
-            navigate("/dashboard");
+
+            if (user.role === "admin") {
+                navigate("/admin/dashboard");
+            }
+            else if (user.role === "client") {
+                navigate("/client/dashboard");
+            }
+            else {
+                navigate("/freelancer/dashboard");
+            }
         }
+
         return () => {
             dispatch(reset());
         };
-    }, [isError, isSuccess, message, navigate, dispatch]);
-
+    }, [
+        isError,
+        isSuccess,
+        message,
+        user,
+        navigate,
+        dispatch
+    ]);
+    
     const validate = () => {
         const newErrors = {};
         if (!formData.name.trim()) {
@@ -59,6 +80,12 @@ export default function RegisterPage() {
         if (formData.password !== formData.confirmPassword) {
             newErrors.confirmPassword = "Passwords do not match";
         }
+        if (
+            formData.role === "admin" &&
+            !formData.secretCode.trim()
+        ) {
+            newErrors.secretCode = "Admin secret is required";
+        }
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -73,8 +100,10 @@ export default function RegisterPage() {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        console.log(formData);
         if (validate()) {
-            const { confirmPassword, ...submitData } = formData;
+            const submitData = { ...formData };
+            delete submitData.confirmPassword;
             dispatch(register(submitData));
         }
     };
@@ -151,6 +180,19 @@ export default function RegisterPage() {
                         setFormData((prev) => ({ ...prev, role }))
                     }
                 />
+
+                {formData.role === "admin" && (
+                    <AuthFormInput
+                        label="Admin Secret"
+                        id="secretCode"
+                        type="password"
+                        placeholder="Enter admin secret"
+                        value={formData.secretCode}
+                        onChange={handleChange}
+                        error={errors.secretCode}
+                        icon={HiOutlineShieldCheck}
+                    />
+                )}
 
                 <Button
                     type="submit"

@@ -3,11 +3,13 @@ const express = require("express");
 const {
     registerUser,
     loginUser,
-    getMe
+    getMe,
+    refreshAuthTokens
 } = require("../controllers/authController");
 
 const protect = require("../middleware/authMiddleware");
 const { body } = require("express-validator");
+const validateRequest = require("../middleware/validateRequest");
 
 const router = express.Router();
 
@@ -16,13 +18,30 @@ router.post(
     [
         body("name").notEmpty(),
         body("email").isEmail(),
-        body("password").isLength({ min: 6 })
+        body("password").isLength({ min: 6 }),
+        body("role").optional().isIn(["client", "freelancer", "admin"])
     ],
+    validateRequest,
     registerUser
 );
 
-router.post("/login", loginUser);
+router.post(
+    "/login",
+    [
+        body("email").isEmail(),
+        body("password").notEmpty()
+    ],
+    validateRequest,
+    loginUser
+);
 
 router.get("/me", protect, getMe);
+
+router.post(
+    "/refresh",
+    body("refreshToken").notEmpty(),
+    validateRequest,
+    refreshAuthTokens
+);
 
 module.exports = router;

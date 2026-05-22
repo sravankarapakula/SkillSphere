@@ -12,6 +12,8 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      - key: REFRESH_TOKEN_SECRET
+        sync: false
       - key: FRONTEND_URL
         sync: false
       - key: CLOUDINARY_CLOUD_NAME

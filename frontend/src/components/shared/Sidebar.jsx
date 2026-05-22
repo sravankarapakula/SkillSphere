@@ -25,7 +25,7 @@ const freelancerLinks = [
 const clientLinks = [
     { to: "/dashboard", label: "Dashboard", icon: HiOutlineHome, end: true },
     { to: "/dashboard/browse", label: "Browse Talent", icon: HiOutlineMagnifyingGlass },
-    { to: "/dashboard/projects", label: "My Projects", icon: HiOutlineBriefcase },
+    { to: "/dashboard/gigs/my", label: "My Gigs", icon: HiOutlineBriefcase },
     { to: "/dashboard/messages", label: "Messages", icon: HiOutlineChatBubbleLeftRight },
     { to: "/dashboard/settings", label: "Settings", icon: HiOutlineCog6Tooth }
 ];
@@ -34,7 +34,7 @@ const adminLinks = [
     { to: "/dashboard", label: "Dashboard", icon: HiOutlineHome, end: true },
     { to: "/dashboard/users", label: "Users", icon: HiOutlineUsers },
     { to: "/dashboard/analytics", label: "Analytics", icon: HiOutlineChartBarSquare },
-    { to: "/dashboard/projects", label: "All Projects", icon: HiOutlineBriefcase },
+    { to: "/dashboard/projects", label: "All Gigs", icon: HiOutlineBriefcase },
     { to: "/dashboard/settings", label: "Settings", icon: HiOutlineCog6Tooth }
 ];
 

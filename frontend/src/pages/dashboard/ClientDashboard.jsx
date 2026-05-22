@@ -1,69 +1,85 @@
 import { useSelector } from "react-redux";
 import WelcomeBanner from "../../components/dashboard/WelcomeBanner";
-import StatCard from "../../components/dashboard/StatCard";
-import RecentActivity from "../../components/dashboard/RecentActivity";
+import DashboardStats from "../../components/dashboard/DashboardStats";
 import QuickActions from "../../components/dashboard/QuickActions";
-import NotificationPanel from "../../components/dashboard/NotificationPanel";
 import {
     HiOutlineBriefcase,
-    HiOutlineUserGroup,
-    HiOutlineCurrencyDollar,
-    HiOutlineChatBubbleLeftRight,
+    HiOutlineCheckCircle,
+    HiOutlineDocumentText,
+    HiOutlineFolderOpen,
+    HiOutlineMagnifyingGlass,
     HiOutlinePlusCircle,
-    HiOutlineMagnifyingGlass
+    HiOutlineQueueList
 } from "react-icons/hi2";
+import { useClientDashboard } from "../../hooks/useDashboardStats";
 
 export default function ClientDashboard() {
     const { user } = useSelector((state) => state.auth);
+    const { stats, isLoading, error } = useClientDashboard();
 
-    const stats = [
+    const cards = [
         {
-            label: "Active Projects",
-            value: "2",
+            label: "Total Gigs Posted",
+            value: stats?.totalGigsPosted || 0,
             icon: HiOutlineBriefcase,
-            color: "text-blue-600 bg-blue-50",
-            trend: 0
+            color: "text-blue-600 bg-blue-50"
         },
         {
-            label: "Hired Freelancers",
-            value: "5",
-            icon: HiOutlineUserGroup,
-            color: "text-emerald-600 bg-emerald-50",
-            trend: 20
+            label: "Open Gigs",
+            value: stats?.openGigs || 0,
+            icon: HiOutlineFolderOpen,
+            color: "text-emerald-600 bg-emerald-50"
         },
         {
-            label: "Total Spent",
-            value: "$8,400",
-            icon: HiOutlineCurrencyDollar,
+            label: "Closed Gigs",
+            value: stats?.closedGigs || 0,
+            icon: HiOutlineCheckCircle,
+            color: "text-surface-600 bg-surface-100"
+        },
+        {
+            label: "Proposals Received",
+            value: stats?.totalProposalsReceived || 0,
+            icon: HiOutlineDocumentText,
+            color: "text-violet-600 bg-violet-50"
+        },
+        {
+            label: "Pending Proposals",
+            value: stats?.pendingProposals || 0,
+            icon: HiOutlineQueueList,
             color: "text-amber-600 bg-amber-50"
         },
         {
-            label: "Messages",
-            value: "12",
-            icon: HiOutlineChatBubbleLeftRight,
-            color: "text-purple-600 bg-purple-50",
-            trend: 5
+            label: "Accepted Proposals",
+            value: stats?.acceptedProposals || 0,
+            icon: HiOutlineCheckCircle,
+            color: "text-teal-600 bg-teal-50"
+        },
+        {
+            label: "Active Projects",
+            value: stats?.activeProjects || 0,
+            icon: HiOutlineBriefcase,
+            color: "text-cyan-600 bg-cyan-50"
         }
     ];
 
     const quickActions = [
         {
-            label: "Post a New Project",
-            description: "Create a new project listing",
-            to: "/dashboard/projects",
+            label: "Post a New Gig",
+            description: "Publish work freelancers can bid on",
+            to: "/dashboard/gigs/create",
             icon: HiOutlinePlusCircle
         },
         {
-            label: "Browse Freelancers",
-            description: "Find talented professionals",
-            to: "/dashboard/browse",
-            icon: HiOutlineMagnifyingGlass
+            label: "Manage My Gigs",
+            description: "Review bids and close finished work",
+            to: "/dashboard/gigs/my",
+            icon: HiOutlineBriefcase
         },
         {
-            label: "Messages",
-            description: "Chat with your hired freelancers",
-            to: "/dashboard/messages",
-            icon: HiOutlineChatBubbleLeftRight
+            label: "Browse Marketplace",
+            description: "See the current gig marketplace",
+            to: "/dashboard/projects",
+            icon: HiOutlineMagnifyingGlass
         }
     ];
 
@@ -71,63 +87,30 @@ export default function ClientDashboard() {
         <div className="space-y-6 animate-fade-in">
             <WelcomeBanner
                 user={user}
-                subtitle="Manage your projects and find the best freelancers for your needs."
+                subtitle="Manage posted gigs and incoming freelancer proposals."
             />
 
-            {/* Stats grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {stats.map((stat, i) => (
-                    <div key={stat.label} style={{ animationDelay: `${i * 80}ms` }} className="animate-fade-in">
-                        <StatCard {...stat} />
-                    </div>
-                ))}
-            </div>
+            <DashboardStats stats={cards} isLoading={isLoading} error={error} />
 
-            {/* Content grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                    <RecentActivity />
-
-                    {/* Active Projects */}
-                    <div className="bg-white rounded-xl border border-surface-200 p-6">
-                        <h3 className="text-lg font-semibold text-surface-900 mb-4">
-                            Your Projects
-                        </h3>
-                        <div className="space-y-3">
-                            {[
-                                { name: "E-commerce Website Redesign", status: "In Progress", proposals: 8 },
-                                { name: "Mobile App Development", status: "Review", proposals: 12 }
-                            ].map((project, i) => (
-                                <div
-                                    key={i}
-                                    className="flex items-center justify-between p-4 bg-surface-50 rounded-lg border border-surface-200 hover:shadow-sm transition"
-                                >
-                                    <div>
-                                        <p className="text-sm font-semibold text-surface-800">
-                                            {project.name}
-                                        </p>
-                                        <p className="text-xs text-surface-500 mt-0.5">
-                                            {project.proposals} proposals received
-                                        </p>
-                                    </div>
-                                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                                        project.status === "In Progress"
-                                            ? "bg-blue-50 text-blue-600"
-                                            : "bg-amber-50 text-amber-600"
-                                    }`}>
-                                        {project.status}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="space-y-6">
-                    <QuickActions actions={quickActions} />
-                    <NotificationPanel />
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6">
+                <LiveStatsNote />
+                <QuickActions actions={quickActions} />
             </div>
         </div>
+    );
+}
+
+function LiveStatsNote() {
+    return (
+        <section className="bg-white rounded-xl border border-surface-200 p-6">
+            <h2 className="text-lg font-semibold text-surface-900">
+                Marketplace Activity
+            </h2>
+            <p className="text-sm text-surface-600 leading-relaxed mt-3">
+                Counts refresh from MongoDB on page load, after navigation, and every 15 seconds.
+                Gig creates, deletes, status changes, and proposal decisions are reflected in these
+                totals without realtime infrastructure.
+            </p>
+        </section>
     );
 }

@@ -1,5 +1,5 @@
 const FreelancerProfile = require("../models/FreelancerProfile.models");
-const asyncHandler = require("../utils/asyncHandler");
+const asyncHandler = require("../utils/asynchandler");
 
 // @desc    Get current user's profile
 // @route   GET /api/profile/me

@@ -1,13 +1,17 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import * as authApi from "../../api/authApi";
+import {
+    clearAuth,
+    getStoredAuth,
+    storeAuth,
+    updateStoredUser
+} from "../../utils/authStorage";
 
-// Load persisted state from localStorage
-const token = localStorage.getItem("token");
-const user = JSON.parse(localStorage.getItem("user"));
+const storedAuth = getStoredAuth();
 
 const initialState = {
-    user: user || null,
-    token: token || null,
+    user: storedAuth.user || null,
+    token: storedAuth.accessToken || null,
     isLoading: false,
     isError: false,
     isSuccess: false,
@@ -21,8 +25,10 @@ export const register = createAsyncThunk(
         try {
             const data = await authApi.registerUser(userData);
             if (data.success) {
-                localStorage.setItem("token", data.data.token);
-                localStorage.setItem("user", JSON.stringify(data.data.user));
+                storeAuth({
+                    ...data.data,
+                    rememberMe: false
+                });
             }
             return data;
         } catch (error) {
@@ -41,10 +47,13 @@ export const login = createAsyncThunk(
     "auth/login",
     async (credentials, thunkAPI) => {
         try {
-            const data = await authApi.loginUser(credentials);
+            const { rememberMe, ...loginData } = credentials;
+            const data = await authApi.loginUser(loginData);
             if (data.success) {
-                localStorage.setItem("token", data.data.token);
-                localStorage.setItem("user", JSON.stringify(data.data.user));
+                storeAuth({
+                    ...data.data,
+                    rememberMe
+                });
             }
             return data;
         } catch (error) {
@@ -62,12 +71,11 @@ export const loadUser = createAsyncThunk(
         try {
             const data = await authApi.getMe();
             if (data.success) {
-                localStorage.setItem("user", JSON.stringify(data.data.user));
+                updateStoredUser(data.data.user);
             }
             return data;
         } catch (error) {
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
+            clearAuth();
             const message =
                 error.response?.data?.message || error.message || "Session expired";
             return thunkAPI.rejectWithValue(message);
@@ -77,8 +85,7 @@ export const loadUser = createAsyncThunk(
 
 // Logout thunk
 export const logout = createAsyncThunk("auth/logout", async () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    clearAuth();
 });
 
 const authSlice = createSlice({
@@ -108,7 +115,7 @@ const authSlice = createSlice({
                 state.isLoading = false;
                 state.isSuccess = true;
                 state.user = action.payload.data.user;
-                state.token = action.payload.data.token;
+                state.token = action.payload.data.accessToken;
             })
             .addCase(register.rejected, (state, action) => {
                 state.isLoading = false;
@@ -127,7 +134,7 @@ const authSlice = createSlice({
                 state.isLoading = false;
                 state.isSuccess = true;
                 state.user = action.payload.data.user;
-                state.token = action.payload.data.token;
+                state.token = action.payload.data.accessToken;
             })
             .addCase(login.rejected, (state, action) => {
                 state.isLoading = false;

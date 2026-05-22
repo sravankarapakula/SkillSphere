@@ -24,6 +24,11 @@ const userSchema = new mongoose.Schema(
         type: String,
         enum: ["client", "freelancer", "admin"],
         default: "client"
+    },
+
+    profileImage: {
+        type: String,
+        default: ""
     }
 },
 {

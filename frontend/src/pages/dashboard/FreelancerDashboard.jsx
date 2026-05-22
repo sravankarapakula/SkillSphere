@@ -1,70 +1,85 @@
 import { useSelector } from "react-redux";
 import WelcomeBanner from "../../components/dashboard/WelcomeBanner";
-import StatCard from "../../components/dashboard/StatCard";
-import RecentActivity from "../../components/dashboard/RecentActivity";
+import DashboardStats from "../../components/dashboard/DashboardStats";
 import QuickActions from "../../components/dashboard/QuickActions";
-import NotificationPanel from "../../components/dashboard/NotificationPanel";
 import {
     HiOutlineBriefcase,
-    HiOutlineCurrencyDollar,
+    HiOutlineCheckCircle,
     HiOutlineDocumentText,
-    HiOutlineChartBar,
+    HiOutlineMagnifyingGlass,
+    HiOutlineQueueList,
     HiOutlineUser,
-    HiOutlineMagnifyingGlass
+    HiOutlineXCircle
 } from "react-icons/hi2";
+import { useFreelancerDashboard } from "../../hooks/useDashboardStats";
 
 export default function FreelancerDashboard() {
     const { user } = useSelector((state) => state.auth);
+    const { stats, isLoading, error } = useFreelancerDashboard();
 
-    const stats = [
+    const cards = [
         {
-            label: "Active Projects",
-            value: "3",
-            icon: HiOutlineBriefcase,
-            color: "text-blue-600 bg-blue-50",
-            trend: 12
+            label: "Gigs Applied",
+            value: stats?.gigsApplied || 0,
+            icon: HiOutlineDocumentText,
+            color: "text-blue-600 bg-blue-50"
         },
         {
-            label: "Total Earnings",
-            value: "$4,250",
-            icon: HiOutlineCurrencyDollar,
-            color: "text-emerald-600 bg-emerald-50",
-            trend: 8
+            label: "Proposals Sent",
+            value: stats?.totalProposalsSent || 0,
+            icon: HiOutlineQueueList,
+            color: "text-violet-600 bg-violet-50"
         },
         {
             label: "Pending Proposals",
-            value: "5",
+            value: stats?.pendingProposals || 0,
             icon: HiOutlineDocumentText,
-            color: "text-amber-600 bg-amber-50",
-            trend: -3
+            color: "text-amber-600 bg-amber-50"
         },
         {
-            label: "Profile Views",
-            value: "128",
-            icon: HiOutlineChartBar,
-            color: "text-purple-600 bg-purple-50",
-            trend: 24
+            label: "Accepted Proposals",
+            value: stats?.acceptedProposals || 0,
+            icon: HiOutlineCheckCircle,
+            color: "text-emerald-600 bg-emerald-50"
+        },
+        {
+            label: "Rejected Proposals",
+            value: stats?.rejectedProposals || 0,
+            icon: HiOutlineXCircle,
+            color: "text-red-600 bg-red-50"
+        },
+        {
+            label: "Active Projects",
+            value: stats?.activeProjects || 0,
+            icon: HiOutlineBriefcase,
+            color: "text-cyan-600 bg-cyan-50"
+        },
+        {
+            label: "Completed Projects",
+            value: stats?.completedProjects || 0,
+            icon: HiOutlineCheckCircle,
+            color: "text-teal-600 bg-teal-50"
         }
     ];
 
     const quickActions = [
         {
-            label: "Complete Your Profile",
-            description: "Add skills, experience, and portfolio",
-            to: "/dashboard/profile",
-            icon: HiOutlineUser
-        },
-        {
-            label: "Browse Projects",
-            description: "Find new freelancing opportunities",
+            label: "Browse Gigs",
+            description: "Find open work by skill and budget",
             to: "/dashboard/projects",
             icon: HiOutlineMagnifyingGlass
         },
         {
-            label: "View Proposals",
-            description: "Check status of your proposals",
+            label: "View My Proposals",
+            description: "Track pending and decided bids",
             to: "/dashboard/proposals",
             icon: HiOutlineDocumentText
+        },
+        {
+            label: "Complete Profile",
+            description: "Keep your freelancer profile ready",
+            to: "/dashboard/profile",
+            icon: HiOutlineUser
         }
     ];
 
@@ -72,42 +87,23 @@ export default function FreelancerDashboard() {
         <div className="space-y-6 animate-fade-in">
             <WelcomeBanner
                 user={user}
-                subtitle="Here's an overview of your freelancing activity and performance."
+                subtitle="Track applications, decisions, and accepted marketplace work."
             />
 
-            {/* Stats grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {stats.map((stat, i) => (
-                    <div key={stat.label} style={{ animationDelay: `${i * 80}ms` }} className="animate-fade-in">
-                        <StatCard {...stat} />
-                    </div>
-                ))}
-            </div>
+            <DashboardStats stats={cards} isLoading={isLoading} error={error} />
 
-            {/* Content grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                    <RecentActivity />
-
-                    {/* Earnings Chart Placeholder */}
-                    <div className="bg-white rounded-xl border border-surface-200 p-6">
-                        <h3 className="text-lg font-semibold text-surface-900 mb-4">
-                            Earnings Overview
-                        </h3>
-                        <div className="h-48 flex items-center justify-center bg-surface-50 rounded-lg">
-                            <div className="text-center">
-                                <p className="text-sm text-surface-400">
-                                    📊 Chart coming soon
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="space-y-6">
-                    <QuickActions actions={quickActions} />
-                    <NotificationPanel />
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6">
+                <section className="bg-white rounded-xl border border-surface-200 p-6">
+                    <h2 className="text-lg font-semibold text-surface-900">
+                        Proposal Sync
+                    </h2>
+                    <p className="text-sm text-surface-600 leading-relaxed mt-3">
+                        Proposal totals refresh when you return to the dashboard and on a
+                        15-second polling interval. Accepted work stays active while the gig is
+                        open and moves to completed when that gig is closed.
+                    </p>
+                </section>
+                <QuickActions actions={quickActions} />
             </div>
         </div>
     );

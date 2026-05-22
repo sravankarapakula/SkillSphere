@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/User.models");
+const User = require("../models/user.models");
 
 const protect = async (req, res, next) => {
 
@@ -19,8 +19,22 @@ const protect = async (req, res, next) => {
                 process.env.JWT_SECRET
             );
 
+            if (decoded.type && decoded.type !== "access") {
+                return res.status(401).json({
+                    success: false,
+                    message: "Invalid token"
+                });
+            }
+
             req.user = await User.findById(decoded.id)
                 .select("-password");
+
+            if (!req.user) {
+                return res.status(401).json({
+                    success: false,
+                    message: "User no longer exists"
+                });
+            }
 
             next();
 

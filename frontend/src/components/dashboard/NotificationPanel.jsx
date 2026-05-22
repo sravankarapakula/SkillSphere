@@ -1,17 +1,7 @@
 import { HiOutlineBell } from "react-icons/hi2";
 
 export default function NotificationPanel({ notifications = [] }) {
-    const defaultNotifications = [
-        {
-            id: 1,
-            title: "Welcome to SkillSphere!",
-            message: "Complete your profile to get started.",
-            time: "Just now",
-            read: false
-        }
-    ];
-
-    const items = notifications.length > 0 ? notifications : defaultNotifications;
+    const items = notifications;
 
     return (
         <div className="bg-white rounded-xl border border-surface-200 p-6">
@@ -23,7 +13,12 @@ export default function NotificationPanel({ notifications = [] }) {
                     {items.filter((n) => !n.read).length} new
                 </span>
             </div>
-            <div className="space-y-3">
+            {items.length === 0 ? (
+                <p className="rounded-lg bg-surface-50 border border-surface-100 px-3 py-6 text-center text-sm text-surface-500">
+                    No notifications yet
+                </p>
+            ) : (
+                <div className="space-y-3">
                 {items.map((notif) => (
                     <div
                         key={notif.id}
@@ -49,7 +44,8 @@ export default function NotificationPanel({ notifications = [] }) {
                         </div>
                     </div>
                 ))}
-            </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { loadUser } from "./redux/slices/authSlice";
 import { FullPageSpinner } from "./components/shared/LoadingSpinner";
+import { getAccessToken } from "./utils/authStorage";
 
 // Layouts
 import AuthLayout from "./layouts/AuthLayout";
@@ -25,20 +26,27 @@ import AdminDashboard from "./pages/dashboard/AdminDashboard";
 // Profile Pages
 import ProfilePage from "./pages/profile/ProfilePage";
 import EditProfilePage from "./pages/profile/EditProfilePage";
+import GigListPage from "./pages/gigs/GigListPage";
+import GigDetailPage from "./pages/gigs/GigDetailPage";
+import CreateGigPage from "./pages/gigs/CreateGigPage";
+import MyGigsPage from "./pages/gigs/MyGigsPage";
+import MyProposalsPage from "./pages/proposals/MyProposalsPage";
+import GigProposalsPage from "./pages/proposals/GigProposalsPage";
 
 export default function App() {
     const dispatch = useDispatch();
     const { token, isLoading, user } = useSelector((state) => state.auth);
+    const accessToken = token || getAccessToken();
 
     // On mount, if a token exists, verify it by loading the user
     useEffect(() => {
-        if (token && !user) {
+        if (accessToken && !user) {
             dispatch(loadUser());
         }
-    }, [dispatch, token, user]);
+    }, [dispatch, accessToken, user]);
 
     // Show spinner while initially verifying the token
-    if (token && !user && isLoading) {
+    if (accessToken && !user && isLoading) {
         return <FullPageSpinner />;
     }
 
@@ -74,16 +82,40 @@ export default function App() {
                             </ProtectedRoute>
                         }
                     />
-                    <Route path="/dashboard/client" element={<ClientDashboard />} />
+                    <Route
+                        path="/dashboard/client"
+                        element={
+                            <ProtectedRoute allowedRoles={["client"]}>
+                                <ClientDashboard />
+                            </ProtectedRoute>
+                        }
+                    />
                     <Route
                         element={<ProtectedRoute allowedRoles={["admin"]} />}
                     >
                         <Route path="/dashboard/admin" element={<AdminDashboard />} />
                     </Route>
 
-                    {/* Placeholder routes for sidebar links */}
-                    <Route path="/dashboard/projects" element={<ComingSoon title="Projects" />} />
-                    <Route path="/dashboard/proposals" element={<ComingSoon title="Proposals" />} />
+                    {/* Gig marketplace */}
+                    <Route path="/dashboard/projects" element={<GigListPage />} />
+                    <Route path="/dashboard/gigs" element={<GigListPage />} />
+                    <Route path="/dashboard/gigs/:gigId" element={<GigDetailPage />} />
+                    <Route
+                        element={<ProtectedRoute allowedRoles={["client"]} />}
+                    >
+                        <Route path="/dashboard/gigs/create" element={<CreateGigPage />} />
+                        <Route path="/dashboard/gigs/my" element={<MyGigsPage />} />
+                        <Route path="/dashboard/gigs/:gigId/proposals" element={<GigProposalsPage />} />
+                    </Route>
+
+                    {/* Proposal tracking */}
+                    <Route
+                        element={<ProtectedRoute allowedRoles={["freelancer"]} />}
+                    >
+                        <Route path="/dashboard/proposals" element={<MyProposalsPage />} />
+                    </Route>
+
+                    {/* Placeholder routes for later stages */}
                     <Route path="/dashboard/messages" element={<ComingSoon title="Messages" />} />
                     <Route path="/dashboard/browse" element={<ComingSoon title="Browse Talent" />} />
                     <Route path="/dashboard/users" element={<ComingSoon title="User Management" />} />

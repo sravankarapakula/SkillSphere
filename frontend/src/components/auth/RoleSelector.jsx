@@ -1,4 +1,8 @@
-import { HiOutlineBriefcase, HiOutlineUserGroup } from "react-icons/hi2";
+import {
+    HiOutlineBriefcase,
+    HiOutlineUserGroup,
+    HiOutlineShieldCheck
+} from "react-icons/hi2";
 
 const roles = [
     {
@@ -12,6 +16,12 @@ const roles = [
         label: "Client",
         description: "Hire talented freelancers for your projects",
         icon: HiOutlineUserGroup
+    },
+    {
+        value: "admin",
+        label: "Admin",
+        description: "Manage and monitor the platform",
+        icon: HiOutlineShieldCheck
     }
 ];
 
@@ -21,9 +31,11 @@ export default function RoleSelector({ selected, onChange }) {
             <label className="block text-sm font-medium text-surface-700">
                 I want to join as a
             </label>
-            <div className="grid grid-cols-2 gap-3">
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {roles.map((role) => {
                     const isSelected = selected === role.value;
+
                     return (
                         <button
                             key={role.value}
@@ -55,6 +67,7 @@ export default function RoleSelector({ selected, onChange }) {
                                     </svg>
                                 </div>
                             )}
+
                             <role.icon
                                 className={`h-7 w-7 ${
                                     isSelected
@@ -62,6 +75,7 @@ export default function RoleSelector({ selected, onChange }) {
                                         : "text-surface-400"
                                 }`}
                             />
+
                             <span
                                 className={`text-sm font-semibold ${
                                     isSelected
@@ -71,6 +85,7 @@ export default function RoleSelector({ selected, onChange }) {
                             >
                                 {role.label}
                             </span>
+
                             <span className="text-xs text-surface-500 text-center leading-snug">
                                 {role.description}
                             </span>

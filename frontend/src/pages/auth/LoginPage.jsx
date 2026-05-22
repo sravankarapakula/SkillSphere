@@ -10,7 +10,8 @@ import { HiOutlineEnvelope, HiOutlineLockClosed } from "react-icons/hi2";
 export default function LoginPage() {
     const [formData, setFormData] = useState({
         email: "",
-        password: ""
+        password: "",
+        rememberMe: false
     });
     const [errors, setErrors] = useState({});
 
@@ -48,8 +49,11 @@ export default function LoginPage() {
     };
 
     const handleChange = (e) => {
-        const { id, value } = e.target;
-        setFormData((prev) => ({ ...prev, [id]: value }));
+        const { id, type, value, checked } = e.target;
+        setFormData((prev) => ({
+            ...prev,
+            [id]: type === "checkbox" ? checked : value
+        }));
         if (errors[id]) {
             setErrors((prev) => ({ ...prev, [id]: "" }));
         }
@@ -83,11 +87,13 @@ export default function LoginPage() {
                 </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} autoComplete="on" className="space-y-5">
                 <AuthFormInput
                     label="Email Address"
                     id="email"
+                    name="email"
                     type="email"
+                    autoComplete="username email"
                     placeholder="you@example.com"
                     value={formData.email}
                     onChange={handleChange}
@@ -98,7 +104,9 @@ export default function LoginPage() {
                 <AuthFormInput
                     label="Password"
                     id="password"
+                    name="password"
                     type="password"
+                    autoComplete="current-password"
                     placeholder="Enter your password"
                     value={formData.password}
                     onChange={handleChange}
@@ -109,7 +117,11 @@ export default function LoginPage() {
                 <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2 cursor-pointer">
                         <input
+                            id="rememberMe"
+                            name="rememberMe"
                             type="checkbox"
+                            checked={formData.rememberMe}
+                            onChange={handleChange}
                             className="h-4 w-4 rounded border-surface-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
                         />
                         <span className="text-sm text-surface-600">Remember me</span>

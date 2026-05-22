@@ -48,6 +48,8 @@ export default function EditProfilePage() {
     // Populate form when profile loads
     useEffect(() => {
         if (profile) {
+            // This editor keeps unsaved form changes local after the fetched profile arrives.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setFormData({
                 title: profile.title || "",
                 bio: profile.bio || "",
