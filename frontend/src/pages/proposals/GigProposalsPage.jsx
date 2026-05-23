@@ -1,14 +1,19 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import { HiOutlineArrowLeft, HiOutlineDocumentText } from "react-icons/hi2";
 import * as proposalApi from "../../api/proposalApi";
+import * as messageApi from "../../api/messageApi";
 import Button from "../../components/shared/Button";
 import LoadingSpinner from "../../components/shared/LoadingSpinner";
 import ProposalCard from "../../components/proposals/ProposalCard";
 import { requestDashboardRefresh } from "../../hooks/useDashboardStats";
+import { setActiveConversation, addNewConversation } from "../../redux/slices/messageSlice";
 
 export default function GigProposalsPage() {
     const { gigId } = useParams();
+    const navigate = useNavigate();
+    const dispatch = useDispatch();
     const [gig, setGig] = useState(null);
     const [proposals, setProposals] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -44,6 +49,31 @@ export default function GigProposalsPage() {
             requestDashboardRefresh();
         } catch (apiError) {
             setError(apiError.response?.data?.message || "Could not update proposal.");
+        } finally {
+            setWorkingId("");
+        }
+    };
+
+    const handleOpenDiscussion = async (proposalId) => {
+        try {
+            setWorkingId(proposalId);
+            const data = await messageApi.createConversation(proposalId);
+            const conversation = data.data.conversation;
+            
+            dispatch(addNewConversation(conversation));
+            dispatch(setActiveConversation(conversation._id));
+            
+            setProposals((current) =>
+                current.map((p) =>
+                    p._id === proposalId && p.status === "pending"
+                        ? { ...p, status: "discussion" }
+                        : p
+                )
+            );
+            
+            navigate("/dashboard/messages");
+        } catch (apiError) {
+            setError(apiError.response?.data?.message || "Could not open discussion.");
         } finally {
             setWorkingId("");
         }
@@ -89,8 +119,8 @@ export default function GigProposalsPage() {
                         key={proposal._id}
                         proposal={proposal}
                         actions={
-                            proposal.status === "pending" && (
-                                <>
+                            (proposal.status === "pending" || proposal.status === "discussion") ? (
+                                <div className="flex gap-2 flex-wrap items-center">
                                     <Button
                                         size="sm"
                                         isLoading={workingId === proposal._id}
@@ -106,8 +136,25 @@ export default function GigProposalsPage() {
                                     >
                                         Reject
                                     </Button>
-                                </>
-                            )
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={workingId === proposal._id}
+                                        onClick={() => handleOpenDiscussion(proposal._id)}
+                                    >
+                                        Open Discussion
+                                    </Button>
+                                </div>
+                            ) : proposal.status === "accepted" ? (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={workingId === proposal._id}
+                                    onClick={() => handleOpenDiscussion(proposal._id)}
+                                >
+                                    Open Chat
+                                </Button>
+                            ) : null
                         }
                     />
                 ))}

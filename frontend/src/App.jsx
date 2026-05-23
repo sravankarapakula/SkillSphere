@@ -32,6 +32,8 @@ import CreateGigPage from "./pages/gigs/CreateGigPage";
 import MyGigsPage from "./pages/gigs/MyGigsPage";
 import MyProposalsPage from "./pages/proposals/MyProposalsPage";
 import GigProposalsPage from "./pages/proposals/GigProposalsPage";
+import MessagesPage from "./pages/Messages";
+import SocketProvider from "./components/shared/SocketProvider";
 
 export default function App() {
     const dispatch = useDispatch();
@@ -51,7 +53,8 @@ export default function App() {
     }
 
     return (
-        <Routes>
+        <SocketProvider>
+            <Routes>
             {/* Public routes (login, register) — redirect if authenticated */}
             <Route element={<PublicRoute />}>
                 <Route element={<AuthLayout />}>
@@ -116,7 +119,7 @@ export default function App() {
                     </Route>
 
                     {/* Placeholder routes for later stages */}
-                    <Route path="/dashboard/messages" element={<ComingSoon title="Messages" />} />
+                    <Route path="/dashboard/messages" element={<MessagesPage />} />
                     <Route path="/dashboard/browse" element={<ComingSoon title="Browse Talent" />} />
                     <Route path="/dashboard/users" element={<ComingSoon title="User Management" />} />
                     <Route path="/dashboard/analytics" element={<ComingSoon title="Analytics" />} />
@@ -127,6 +130,7 @@ export default function App() {
             {/* Catch-all redirect */}
             <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
+        </SocketProvider>
     );
 }
 

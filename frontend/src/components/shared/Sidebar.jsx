@@ -51,6 +51,7 @@ function getLinksForRole(role) {
 
 export default function Sidebar({ isOpen, onClose }) {
     const { user } = useSelector((state) => state.auth);
+    const { totalUnread = 0 } = useSelector((state) => state.message || {});
     const links = getLinksForRole(user?.role);
 
     const initials = user?.name
@@ -118,7 +119,12 @@ export default function Sidebar({ isOpen, onClose }) {
                                 }
                             >
                                 <link.icon className="h-5 w-5 flex-shrink-0" />
-                                {link.label}
+                                <span className="flex-1">{link.label}</span>
+                                {link.label === "Messages" && totalUnread > 0 && (
+                                    <span className="bg-danger text-white text-[10px] font-bold h-5 min-w-5 px-1 rounded-full flex items-center justify-center flex-shrink-0 animate-fade-in">
+                                        {totalUnread > 99 ? "99+" : totalUnread}
+                                    </span>
+                                )}
                             </NavLink>
                         ))}
                     </div>

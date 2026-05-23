@@ -14,13 +14,8 @@ const safeParse = (value) => {
     }
 };
 
-const getValue = (key) =>
-    localStorage.getItem(key) || sessionStorage.getItem(key);
-
-const getRememberedStorage = () =>
-    localStorage.getItem("rememberMe") === "true"
-        ? localStorage
-        : sessionStorage;
+// Use sessionStorage exclusively to support independent multi-account testing in separate tabs
+const getValue = (key) => sessionStorage.getItem(key);
 
 export const getAccessToken = () =>
     getValue("accessToken") || getValue("token");
@@ -33,7 +28,7 @@ export const getStoredAuth = () => ({
     accessToken: getAccessToken(),
     refreshToken: getRefreshToken(),
     user: getStoredUser(),
-    rememberMe: localStorage.getItem("rememberMe") === "true"
+    rememberMe: false
 });
 
 export const storeAuth = ({
@@ -42,17 +37,18 @@ export const storeAuth = ({
     user,
     rememberMe = false
 }) => {
+    // Clear both localStorage and sessionStorage to purge any old stale states
     clearAuth();
 
-    const storage = rememberMe ? localStorage : sessionStorage;
+    const storage = sessionStorage;
     storage.setItem("accessToken", accessToken);
     storage.setItem("refreshToken", refreshToken);
     storage.setItem("user", JSON.stringify(user));
-    storage.setItem("rememberMe", String(Boolean(rememberMe)));
+    storage.setItem("rememberMe", "false");
 };
 
 export const updateStoredTokens = ({ accessToken, refreshToken, user }) => {
-    const storage = getRememberedStorage();
+    const storage = sessionStorage;
 
     if (accessToken) {
         storage.setItem("accessToken", accessToken);
@@ -68,7 +64,7 @@ export const updateStoredTokens = ({ accessToken, refreshToken, user }) => {
 };
 
 export const updateStoredUser = (user) => {
-    getRememberedStorage().setItem("user", JSON.stringify(user));
+    sessionStorage.setItem("user", JSON.stringify(user));
 };
 
 export const clearAuth = () => {
