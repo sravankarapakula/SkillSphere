@@ -1,5 +1,3 @@
-import React from "react";
-
 export default function TypingIndicator({ userName }) {
     return (
         <div className="flex items-center gap-2 mb-4 animate-message-in">

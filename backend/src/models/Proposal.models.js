@@ -29,8 +29,33 @@ const proposalSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ["pending", "accepted", "rejected", "discussion"],
-            default: "pending"
+            enum: ["submitted", "shortlisted", "accepted", "rejected", "withdrawn", "hired", "completed"],
+            default: "submitted"
+        },
+        shortlistedAt: {
+            type: Date,
+            default: null
+        },
+        acceptedAt: {
+            type: Date,
+            default: null
+        },
+        rejectedAt: {
+            type: Date,
+            default: null
+        },
+        withdrawnAt: {
+            type: Date,
+            default: null
+        },
+        hiredAt: {
+            type: Date,
+            default: null
+        },
+        project: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Project",
+            default: null
         }
     },
     {

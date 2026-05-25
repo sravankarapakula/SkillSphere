@@ -4,16 +4,25 @@ const mongoose = require("mongoose");
 const User = require("../models/user.models");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
+const {
+    MAX_MESSAGE_TEXT_LENGTH,
+    getLastMessageText,
+    normalizeMessagePayload
+} = require("../utils/messagePayload");
+const {
+    buildConversationReadState,
+    buildMessagePayload,
+    chatRoom,
+    getFirstUnreadMessage,
+    getUnreadCount,
+    isParticipant,
+    markMessagesRead,
+    userRoom
+} = require("../services/chatReadService");
 
-// Per-socket rate limiting
 const SOCKET_RATE_LIMIT_WINDOW = 60000;
 const SOCKET_RATE_LIMIT_MAX = 30;
 
-/**
- * Initialize Socket.IO on the given HTTP server.
- * Handles authentication, realtime messaging, typing indicators,
- * online/offline tracking, and read receipts.
- */
 function initializeSocket(httpServer) {
     const io = new Server(httpServer, {
         cors: {
@@ -25,16 +34,35 @@ function initializeSocket(httpServer) {
         },
         pingTimeout: 60000,
         pingInterval: 25000,
-        maxHttpBufferSize: 1e6 // 1 MB max payload
+        maxHttpBufferSize: 1e6
     });
 
-    // ─── Online user tracking: userId → socketId ───────────────────
     const onlineUsers = new Map();
-
-    // ─── Socket rate limiting tracking ─────────────────────────────
     const socketRateLimits = new Map();
 
-    // ─── JWT Authentication Middleware ─────────────────────────────
+    const addOnlineSocket = (userId, socketId) => {
+        const key = String(userId);
+        const sockets = onlineUsers.get(key) || new Set();
+        sockets.add(socketId);
+        onlineUsers.set(key, sockets);
+    };
+
+    const removeOnlineSocket = (userId, socketId) => {
+        const key = String(userId);
+        const sockets = onlineUsers.get(key);
+        if (!sockets) return false;
+
+        sockets.delete(socketId);
+        if (sockets.size === 0) {
+            onlineUsers.delete(key);
+            return true;
+        }
+
+        return false;
+    };
+
+    const onlineUserIds = () => Array.from(onlineUsers.keys());
+
     io.use(async (socket, next) => {
         try {
             const token = socket.handshake.auth?.token;
@@ -57,13 +85,12 @@ function initializeSocket(httpServer) {
 
             socket.userId = user._id.toString();
             socket.userName = user.name;
-            next();
+            return next();
         } catch (error) {
-            next(new Error("Authentication failed"));
+            return next(new Error("Authentication failed"));
         }
     });
 
-    // ─── Check socket rate limit ──────────────────────────────────
     function checkRateLimit(socketId) {
         const now = Date.now();
         const entry = socketRateLimits.get(socketId);
@@ -81,221 +108,310 @@ function initializeSocket(httpServer) {
         return true;
     }
 
-    // ─── Connection Handler ───────────────────────────────────────
+    const emitUnreadUpdate = (conversation, userId) => {
+        const payload = {
+            conversationId: conversation._id.toString(),
+            userId: String(userId),
+            unreadCount: getUnreadCount(conversation, userId),
+            ...buildConversationReadState(conversation),
+            totalUnread: null
+        };
+
+        io.to(userRoom(userId)).emit("unread_count_updated", payload);
+        io.to(userRoom(userId)).emit("notifications_updated", {
+            unreadMessagesTotal: null,
+            unreadPerChat: payload.unreadCounts,
+            notificationsTotal: null
+        });
+    };
+
+    const handleSendMessage = async (socket, data = {}) => {
+        if (!checkRateLimit(socket.id)) {
+            socket.emit("error-message", { message: "Too many messages. Please slow down." });
+            return;
+        }
+
+        const { conversationId } = data;
+        const { text, attachments, hasContent } = normalizeMessagePayload(data);
+
+        if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) return;
+        if (!hasContent || text.length > MAX_MESSAGE_TEXT_LENGTH) return;
+
+        const conversation = await Conversation.findById(conversationId);
+
+        if (!conversation || !isParticipant(conversation, socket.userId)) return;
+
+        const message = await Message.create({
+            conversationId,
+            sender: socket.userId,
+            text,
+            attachments,
+            readBy: [socket.userId],
+            seenBy: [socket.userId]
+        });
+
+        conversation.lastMessage = message._id;
+        conversation.lastMessageText = getLastMessageText(text, attachments);
+        conversation.updatedAt = new Date();
+
+        for (const participantId of conversation.participants) {
+            const pid = participantId.toString();
+            if (pid !== socket.userId) {
+                const currentUnread = getUnreadCount(conversation, pid);
+                conversation.unreadCounts.set(pid, getUnreadCount(conversation, pid) + 1);
+                if (currentUnread === 0) {
+                    conversation.unreadAnchorMessage.set(pid, message._id);
+                }
+            } else {
+                conversation.lastReadMessage.set(pid, message._id);
+                conversation.lastVisibleMessage.set(pid, message._id);
+                conversation.lastSeenTimestamp.set(pid, new Date());
+            }
+        }
+
+        await conversation.save();
+        await message.populate("sender", "name profileImage profilePicture");
+
+        const messagePayload = buildMessagePayload(message);
+        const chatPayload = {
+            message: messagePayload,
+            conversationId: conversation._id.toString(),
+            lastMessageText: conversation.lastMessageText,
+            updatedAt: conversation.updatedAt,
+            ...buildConversationReadState(conversation)
+        };
+
+        for (const participantId of conversation.participants) {
+            const pid = participantId.toString();
+            io.to(userRoom(pid)).emit("new_message", {
+                ...chatPayload,
+                unreadCount: getUnreadCount(conversation, pid),
+                isSender: pid === socket.userId
+            });
+            emitUnreadUpdate(conversation, pid);
+        }
+
+        io.to(chatRoom(conversationId)).emit("chat_updated", chatPayload);
+        socket.emit("message-sent", messagePayload);
+    };
+
+    const handleMessagesRead = async (socket, data = {}) => {
+        const { conversationId } = data;
+        const messageIds = data.messageIds || (data.messageId ? [data.messageId] : []);
+        const result = await markMessagesRead({
+            conversationId,
+            userId: socket.userId,
+            messageIds,
+            lastVisibleMessageId: data.lastVisibleMessageId || messageIds[messageIds.length - 1]
+        });
+
+        if (!result) return;
+
+        const payload = {
+            conversationId: result.conversation._id.toString(),
+            messageIds: result.messageIds,
+            readByUserId: result.readByUserId,
+            readAt: result.readAt,
+            unreadCount: result.unreadCount,
+            unreadAnchorMessageId: result.unreadAnchorMessageId,
+            lastVisibleMessageId: result.lastVisibleMessageId,
+            unreadCounts: result.unreadCounts,
+            lastReadMessage: result.lastReadMessage,
+            lastVisibleMessage: result.lastVisibleMessage,
+            unreadAnchorMessage: result.unreadAnchorMessage
+        };
+
+        io.to(chatRoom(conversationId)).emit("messages_read", payload);
+        io.to(chatRoom(conversationId)).emit("messages-read", payload);
+
+        for (const participantId of result.conversation.participants) {
+            const pid = participantId.toString();
+            io.to(userRoom(pid)).emit("messages_read", payload);
+            if (pid === socket.userId) {
+                emitUnreadUpdate(result.conversation, pid);
+            }
+        }
+    };
+
     io.on("connection", (socket) => {
-        console.log(`Socket connected: ${socket.userName} (${socket.userId})`);
+        addOnlineSocket(socket.userId, socket.id);
+        socket.join(userRoom(socket.userId));
 
-        // Register user as online
-        onlineUsers.set(socket.userId, socket.id);
+        io.emit("user_online_status", { userId: socket.userId, isOnline: true });
         io.emit("user-online", { userId: socket.userId });
+        socket.emit("online-users", onlineUserIds());
 
-        // Send current list of online users to this socket
-        socket.emit("online-users", Array.from(onlineUsers.keys()));
-
-        // Explicit registration handler
         socket.on("register-user", (userId) => {
-            if (userId) {
-                const uid = String(userId);
-                onlineUsers.set(uid, socket.id);
-                socket.userId = uid;
-                io.emit("user-online", { userId: uid });
-                socket.emit("online-users", Array.from(onlineUsers.keys()));
+            const uid = String(userId || socket.userId);
+            socket.userId = uid;
+            socket.join(userRoom(uid));
+            addOnlineSocket(uid, socket.id);
+            io.emit("user_online_status", { userId: uid, isOnline: true });
+            io.emit("user-online", { userId: uid });
+            socket.emit("online-users", onlineUserIds());
+        });
+
+        socket.on("join_chat", async ({ conversationId } = {}) => {
+            if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) return;
+
+            const conversation = await Conversation.findById(conversationId);
+            if (!conversation || !isParticipant(conversation, socket.userId)) return;
+
+            socket.join(chatRoom(conversationId));
+            socket.emit("unread_count_updated", {
+                conversationId,
+                userId: socket.userId,
+                unreadCount: getUnreadCount(conversation, socket.userId),
+                ...buildConversationReadState(conversation),
+                totalUnread: null
+            });
+        });
+
+        socket.on("open_chat", async ({ conversationId } = {}) => {
+            if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) return;
+
+            const conversation = await Conversation.findById(conversationId);
+            if (!conversation || !isParticipant(conversation, socket.userId)) return;
+
+            const firstUnread = await getFirstUnreadMessage({ conversationId, userId: socket.userId });
+            if (firstUnread) {
+                conversation.unreadAnchorMessage.set(socket.userId, firstUnread._id);
+                await conversation.save();
+            }
+
+            socket.join(chatRoom(conversationId));
+            socket.emit("chat_updated", {
+                conversationId,
+                unreadAnchorMessageId: firstUnread?._id?.toString() || null,
+                unreadCount: getUnreadCount(conversation, socket.userId),
+                ...buildConversationReadState(conversation)
+            });
+        });
+
+        socket.on("leave_chat", ({ conversationId } = {}) => {
+            if (conversationId) {
+                socket.leave(chatRoom(conversationId));
             }
         });
 
-        // ─── Send Message ─────────────────────────────────────────
-        socket.on("send-message", async (data) => {
-            try {
-                const { conversationId, text } = data;
+        socket.on("send_message", (data) => {
+            handleSendMessage(socket, data).catch((error) => {
+                console.error("Socket send_message error:", error.message);
+                socket.emit("error-message", { message: "Failed to send message" });
+            });
+        });
 
-                // Rate limit check
-                if (!checkRateLimit(socket.id)) {
-                    socket.emit("error-message", {
-                        message: "Too many messages. Please slow down."
-                    });
-                    return;
-                }
-
-                // Validate inputs
-                if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
-                    return;
-                }
-
-                if (!text || typeof text !== "string" || !text.trim() || text.length > 5000) {
-                    return;
-                }
-
-                // Verify participation
-                const conversation = await Conversation.findById(conversationId);
-
-                if (!conversation) return;
-
-                const isParticipant = conversation.participants.some(
-                    (p) => p.toString() === socket.userId
-                );
-
-                if (!isParticipant) return;
-
-                // Create message
-                const message = await Message.create({
-                    conversationId,
-                    sender: socket.userId,
-                    text: text.trim(),
-                    readBy: [socket.userId]
-                });
-
-                // Update conversation
-                conversation.lastMessage = message._id;
-                conversation.lastMessageText = text.trim().substring(0, 100);
-                conversation.updatedAt = new Date();
-
-                for (const participantId of conversation.participants) {
-                    if (participantId.toString() !== socket.userId) {
-                        const currentCount = conversation.unreadCounts.get(participantId.toString()) || 0;
-                        conversation.unreadCounts.set(participantId.toString(), currentCount + 1);
-                    }
-                }
-
-                await conversation.save();
-
-                // Populate sender info
-                await message.populate("sender", "name profileImage profilePicture");
-
-                const messagePayload = {
-                    _id: message._id,
-                    conversationId: message.conversationId,
-                    sender: message.sender,
-                    text: message.text,
-                    readBy: message.readBy,
-                    createdAt: message.createdAt
-                };
-
-                // Send to recipient if online
-                for (const participantId of conversation.participants) {
-                    const pid = participantId.toString();
-                    if (pid !== socket.userId) {
-                        const recipientSocketId = onlineUsers.get(pid);
-                        if (recipientSocketId) {
-                            io.to(recipientSocketId).emit("receive-message", messagePayload);
-                            io.to(recipientSocketId).emit("conversation-updated", {
-                                conversationId,
-                                lastMessageText: conversation.lastMessageText,
-                                updatedAt: conversation.updatedAt,
-                                unreadCount: conversation.unreadCounts.get(pid) || 0
-                            });
-                        }
-                    }
-                }
-
-                // Acknowledge to sender
-                socket.emit("message-sent", messagePayload);
-            } catch (error) {
+        socket.on("send-message", (data) => {
+            handleSendMessage(socket, data).catch((error) => {
                 console.error("Socket send-message error:", error.message);
-                socket.emit("error-message", {
-                    message: "Failed to send message"
-                });
-            }
+                socket.emit("error-message", { message: "Failed to send message" });
+            });
         });
 
-        // ─── Typing Indicators ────────────────────────────────────
-        socket.on("typing", (data) => {
-            const { conversationId, recipientId } = data;
-
-            if (!recipientId) return;
-
-            const recipientSocketId = onlineUsers.get(recipientId);
-
-            if (recipientSocketId) {
-                io.to(recipientSocketId).emit("typing", {
-                    conversationId,
-                    userId: socket.userId,
-                    userName: socket.userName
-                });
-            }
+        socket.on("message_seen", (data) => {
+            handleMessagesRead(socket, data).catch((error) => {
+                console.error("Socket message_seen error:", error.message);
+            });
         });
 
-        socket.on("stop-typing", (data) => {
-            const { conversationId, recipientId } = data;
-
-            if (!recipientId) return;
-
-            const recipientSocketId = onlineUsers.get(recipientId);
-
-            if (recipientSocketId) {
-                io.to(recipientSocketId).emit("stop-typing", {
-                    conversationId,
-                    userId: socket.userId
-                });
-            }
+        socket.on("message_visible", (data) => {
+            handleMessagesRead(socket, data).catch((error) => {
+                console.error("Socket message_visible error:", error.message);
+            });
         });
 
-        // ─── Mark Read ────────────────────────────────────────────
-        socket.on("mark-read", async (data) => {
-            try {
-                const { conversationId } = data;
-
-                if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
-                    return;
-                }
-
-                const conversation = await Conversation.findById(conversationId);
-
-                if (!conversation) return;
-
-                const isParticipant = conversation.participants.some(
-                    (p) => p.toString() === socket.userId
-                );
-
-                if (!isParticipant) return;
-
-                // Mark all unread messages in this conversation as read by this user
-                await Message.updateMany(
-                    {
-                        conversationId,
-                        readBy: { $ne: mongoose.Types.ObjectId.createFromHexString(socket.userId) }
-                    },
-                    {
-                        $addToSet: { readBy: socket.userId }
-                    }
-                );
-
-                // Reset unread count
-                conversation.unreadCounts.set(socket.userId, 0);
-                await conversation.save();
-
-                // Notify the other participant about the read receipt
-                for (const participantId of conversation.participants) {
-                    const pid = participantId.toString();
-                    if (pid !== socket.userId) {
-                        const recipientSocketId = onlineUsers.get(pid);
-                        if (recipientSocketId) {
-                            io.to(recipientSocketId).emit("messages-read", {
-                                conversationId,
-                                readByUserId: socket.userId
-                            });
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error("Socket mark-read error:", error.message);
-            }
+        socket.on("mark_messages_read", (data) => {
+            handleMessagesRead(socket, data).catch((error) => {
+                console.error("Socket mark_messages_read error:", error.message);
+            });
         });
 
-        // ─── Disconnect ───────────────────────────────────────────
+        socket.on("mark-read", async (data = {}) => {
+            if (!data.conversationId || !mongoose.Types.ObjectId.isValid(data.conversationId)) return;
+
+            const unreadMessages = await Message.find({
+                conversationId: data.conversationId,
+                sender: { $ne: mongoose.Types.ObjectId.createFromHexString(socket.userId) },
+                readBy: { $ne: mongoose.Types.ObjectId.createFromHexString(socket.userId) }
+            }).select("_id");
+
+            await handleMessagesRead(socket, {
+                conversationId: data.conversationId,
+                messageIds: unreadMessages.map((message) => message._id.toString())
+            });
+        });
+
+        socket.on("typing_start", (data = {}) => {
+            const payload = {
+                conversationId: data.conversationId,
+                userId: socket.userId,
+                userName: socket.userName,
+                isTyping: true
+            };
+            if (data.recipientId) {
+                io.to(userRoom(data.recipientId)).emit("typing_status", payload);
+                io.to(userRoom(data.recipientId)).emit("typing", payload);
+            }
+            socket.to(chatRoom(data.conversationId)).emit("typing_status", payload);
+            socket.to(chatRoom(data.conversationId)).emit("typing", payload);
+        });
+
+        socket.on("typing", (data = {}) => {
+            const recipientId = data.recipientId;
+            const payload = {
+                conversationId: data.conversationId,
+                userId: socket.userId,
+                userName: socket.userName,
+                isTyping: true
+            };
+            if (recipientId) {
+                io.to(userRoom(recipientId)).emit("typing_status", payload);
+                io.to(userRoom(recipientId)).emit("typing", payload);
+            }
+            socket.to(chatRoom(data.conversationId)).emit("typing_status", payload);
+        });
+
+        socket.on("typing_stop", (data = {}) => {
+            const payload = {
+                conversationId: data.conversationId,
+                userId: socket.userId,
+                userName: socket.userName,
+                isTyping: false
+            };
+            if (data.recipientId) {
+                io.to(userRoom(data.recipientId)).emit("typing_status", payload);
+                io.to(userRoom(data.recipientId)).emit("stop-typing", payload);
+            }
+            socket.to(chatRoom(data.conversationId)).emit("typing_status", payload);
+            socket.to(chatRoom(data.conversationId)).emit("stop-typing", payload);
+        });
+
+        socket.on("stop-typing", (data = {}) => {
+            const recipientId = data.recipientId;
+            const payload = {
+                conversationId: data.conversationId,
+                userId: socket.userId,
+                userName: socket.userName,
+                isTyping: false
+            };
+            if (recipientId) {
+                io.to(userRoom(recipientId)).emit("typing_status", payload);
+                io.to(userRoom(recipientId)).emit("stop-typing", payload);
+            }
+            socket.to(chatRoom(data.conversationId)).emit("typing_status", payload);
+        });
+
         socket.on("disconnect", () => {
-            console.log(`Socket disconnected: ${socket.userName} (${socket.userId})`);
+            const wentOffline = removeOnlineSocket(socket.userId, socket.id);
+            socketRateLimits.delete(socket.id);
 
-            // Only remove if this is still the active socket for this user
-            if (onlineUsers.get(socket.userId) === socket.id) {
-                onlineUsers.delete(socket.userId);
+            if (wentOffline) {
+                io.emit("user_online_status", { userId: socket.userId, isOnline: false });
                 io.emit("user-offline", { userId: socket.userId });
             }
-
-            socketRateLimits.delete(socket.id);
         });
     });
 
-    // Cleanup stale rate limit entries periodically
     setInterval(() => {
         const now = Date.now();
         for (const [socketId, entry] of socketRateLimits) {

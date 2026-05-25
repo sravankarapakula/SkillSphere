@@ -1,12 +1,13 @@
-import React from "react";
+import { memo } from "react";
 
-export default function MessageBubble({ message, isOwn }) {
+function MessageBubble({ message, isOwn }) {
     const formattedTime = new Date(message.createdAt).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit"
     });
 
-    const isRead = message.readBy && message.readBy.length > 1;
+    const isRead = (message.readBy && message.readBy.length > 1) || (message.seenBy && message.seenBy.length > 1);
+    const attachments = message.attachments || [];
 
     return (
         <div
@@ -28,7 +29,26 @@ export default function MessageBubble({ message, isOwn }) {
                             : "bg-primary-600 text-white rounded-2xl rounded-bl-md font-normal"
                     }`}
                 >
-                    <p className="whitespace-pre-wrap break-words">{message.text}</p>
+                    {message.text && (
+                        <p className="whitespace-pre-wrap break-words">{message.text}</p>
+                    )}
+                    {attachments.length > 0 && (
+                        <div className={message.text ? "mt-2 space-y-1" : "space-y-1"}>
+                            {attachments.map((attachment) => (
+                                <a
+                                    key={attachment.url}
+                                    href={attachment.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className={`block rounded-lg px-3 py-2 text-xs font-semibold underline-offset-2 hover:underline ${
+                                        isOwn ? "bg-surface-50 text-primary-700" : "bg-white/10 text-white"
+                                    }`}
+                                >
+                                    {attachment.filename || "Attachment"}
+                                </a>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {!isOwn && (
@@ -60,3 +80,5 @@ export default function MessageBubble({ message, isOwn }) {
         </div>
     );
 }
+
+export default memo(MessageBubble);

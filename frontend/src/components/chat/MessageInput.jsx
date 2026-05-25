@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { getSocket } from "../../services/socketService";
 
 export default function MessageInput({ conversationId, recipientId, onSendMessage, disabled }) {
@@ -26,7 +26,7 @@ export default function MessageInput({ conversationId, recipientId, onSendMessag
 
         if (!isTypingRef.current) {
             isTypingRef.current = true;
-            socket.emit("typing", { conversationId, recipientId });
+            socket.emit("typing_start", { conversationId, recipientId });
         }
 
         if (typingTimeoutRef.current) {
@@ -34,7 +34,7 @@ export default function MessageInput({ conversationId, recipientId, onSendMessag
         }
 
         typingTimeoutRef.current = setTimeout(() => {
-            socket.emit("stop-typing", { conversationId, recipientId });
+            socket.emit("typing_stop", { conversationId, recipientId });
             isTypingRef.current = false;
         }, 2000);
     };
@@ -48,7 +48,7 @@ export default function MessageInput({ conversationId, recipientId, onSendMessag
 
         const socket = getSocket();
         if (socket && conversationId && recipientId) {
-            socket.emit("stop-typing", { conversationId, recipientId });
+            socket.emit("typing_stop", { conversationId, recipientId });
             isTypingRef.current = false;
             if (typingTimeoutRef.current) {
                 clearTimeout(typingTimeoutRef.current);

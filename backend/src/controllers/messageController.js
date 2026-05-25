@@ -5,6 +5,17 @@ const Proposal = require("../models/Proposal.models");
 const Gig = require("../models/Gig.models");
 const asyncHandler = require("../utils/asynchandler");
 const { successResponse, errorResponse } = require("../utils/apiResponse");
+const {
+    MAX_MESSAGE_TEXT_LENGTH,
+    getLastMessageText,
+    normalizeMessagePayload
+} = require("../utils/messagePayload");
+const {
+    buildConversationReadState,
+    buildMessagePayload,
+    getFirstUnreadMessage,
+    markMessagesRead
+} = require("../services/chatReadService");
 
 const MESSAGES_PER_PAGE = 30;
 
@@ -48,6 +59,13 @@ const createConversation = asyncHandler(async (req, res) => {
         unreadCounts: new Map([
             [req.user._id.toString(), 0],
             [proposal.freelancer.toString(), 0]
+        ]),
+        unreadAnchorMessage: new Map(),
+        lastVisibleMessage: new Map(),
+        lastReadMessage: new Map(),
+        lastSeenTimestamp: new Map([
+            [req.user._id.toString(), new Date()],
+            [proposal.freelancer.toString(), new Date()]
         ])
     });
 
@@ -75,7 +93,12 @@ const getConversations = asyncHandler(async (req, res) => {
         .populate("proposal", "gig status")
         .sort({ updatedAt: -1 });
 
-    return successResponse(res, { conversations });
+    return successResponse(res, {
+        conversations: conversations.map((conversation) => ({
+            ...conversation.toObject(),
+            ...buildConversationReadState(conversation)
+        }))
+    });
 });
 
 /**
@@ -120,12 +143,19 @@ const getMessages = asyncHandler(async (req, res) => {
 
     // Reverse so newest are at the bottom for display
     messages.reverse();
+    const firstUnread = await getFirstUnreadMessage({
+        conversationId,
+        userId: req.user._id.toString()
+    });
 
     return successResponse(res, {
         messages,
         currentPage: page,
         totalPages,
-        hasMore: page < totalPages
+        hasMore: page < totalPages,
+        unreadAnchorMessageId: firstUnread?._id?.toString() || null,
+        unreadCount: conversation.unreadCounts.get(req.user._id.toString()) || 0,
+        readState: buildConversationReadState(conversation)
     });
 });
 
@@ -134,17 +164,18 @@ const getMessages = asyncHandler(async (req, res) => {
  * Send a message in an existing conversation.
  */
 const sendMessage = asyncHandler(async (req, res) => {
-    const { conversationId, text } = req.body;
+    const { conversationId } = req.body;
+    const { text, attachments, hasContent } = normalizeMessagePayload(req.body);
 
     if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
         return errorResponse(res, "Valid conversationId is required", 400);
     }
 
-    if (!text || typeof text !== "string" || !text.trim()) {
-        return errorResponse(res, "Message text is required", 400);
+    if (!hasContent) {
+        return errorResponse(res, "Message text or attachment is required", 400);
     }
 
-    if (text.length > 5000) {
+    if (text.length > MAX_MESSAGE_TEXT_LENGTH) {
         return errorResponse(res, "Message text exceeds maximum length of 5000 characters", 400);
     }
 
@@ -167,13 +198,16 @@ const sendMessage = asyncHandler(async (req, res) => {
     const message = await Message.create({
         conversationId,
         sender: req.user._id,
-        text: text.trim(),
-        readBy: [req.user._id]
+        text,
+        attachments,
+        readBy: [req.user._id],
+        seenBy: [req.user._id],
+        visibilityTracked: true
     });
 
     // Update conversation metadata
     conversation.lastMessage = message._id;
-    conversation.lastMessageText = text.trim().substring(0, 100);
+    conversation.lastMessageText = getLastMessageText(text, attachments);
     conversation.updatedAt = new Date();
 
     // Increment unread count for the other participant
@@ -181,6 +215,12 @@ const sendMessage = asyncHandler(async (req, res) => {
         if (participantId.toString() !== req.user._id.toString()) {
             const currentCount = conversation.unreadCounts.get(participantId.toString()) || 0;
             conversation.unreadCounts.set(participantId.toString(), currentCount + 1);
+            if (currentCount === 0) {
+                conversation.unreadAnchorMessage.set(participantId.toString(), message._id);
+            }
+        } else {
+            conversation.lastReadMessage.set(participantId.toString(), message._id);
+            conversation.lastVisibleMessage.set(participantId.toString(), message._id);
         }
     }
 
@@ -189,7 +229,7 @@ const sendMessage = asyncHandler(async (req, res) => {
     // Populate sender info for the response
     await message.populate("sender", "name profileImage profilePicture");
 
-    return successResponse(res, { message }, "Message sent", 201);
+    return successResponse(res, { message: buildMessagePayload(message) }, "Message sent", 201);
 });
 
 /**
@@ -224,19 +264,11 @@ const markAsRead = asyncHandler(async (req, res) => {
         return errorResponse(res, "Access denied", 403);
     }
 
-    // Add user to readBy if not already present
-    const alreadyRead = message.readBy.some(
-        (id) => id.toString() === req.user._id.toString()
-    );
-
-    if (!alreadyRead) {
-        message.readBy.push(req.user._id);
-        await message.save();
-    }
-
-    // Reset unread count for this user in the conversation
-    conversation.unreadCounts.set(req.user._id.toString(), 0);
-    await conversation.save();
+    await markMessagesRead({
+        conversationId: message.conversationId.toString(),
+        userId: req.user._id.toString(),
+        messageIds: [messageId]
+    });
 
     return successResponse(res, null, "Message marked as read");
 });

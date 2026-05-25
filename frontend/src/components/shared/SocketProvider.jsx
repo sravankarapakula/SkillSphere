@@ -1,11 +1,13 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { connectSocket, disconnectSocket } from "../../services/socketService";
 import {
-    addMessage,
-    updateConversationOnNewMessage,
-    markConversationRead,
-    updateMessageReadBy,
+    applyChatUpdate,
+    applyMessagesRead,
+    applyNotificationsUpdate,
+    applyUnreadCountUpdate,
+    receiveSocketMessage,
+    setSocketConnected,
     setOnlineUsers,
     addUserOnline,
     removeUserOffline,
@@ -14,115 +16,140 @@ import {
 
 export default function SocketProvider({ children }) {
     const { token, user } = useSelector((state) => state.auth);
-    const { activeConversationId } = useSelector((state) => state.message);
     const dispatch = useDispatch();
 
     useEffect(() => {
-        if (token && user) {
-            const socket = connectSocket(token);
-
-            const handleConnect = () => {
-                console.log(`[Socket] Connected as user ${user.name} (${user._id})`);
-                socket.emit("register-user", user._id);
-            };
-
-            socket.on("connect", handleConnect);
-
-            // If already connected, register immediately
-            if (socket.connected) {
-                console.log(`[Socket] Already connected as user ${user.name} (${user._id})`);
-                handleConnect();
-            }
-
-            // Listen for online users list
-            socket.on("online-users", (userIds) => {
-                console.log("[Socket] Current online users updated:", userIds);
-                dispatch(setOnlineUsers(userIds));
-            });
-
-            // Listen for receive-message
-            socket.on("receive-message", (message) => {
-                console.log(`[Socket] Received message from ${message.sender.name}:`, message.text);
-                dispatch(addMessage(message));
-                dispatch(updateConversationOnNewMessage({
-                    conversationId: message.conversationId,
-                    lastMessageText: message.text,
-                    updatedAt: new Date().toISOString(),
-                    currentUserId: user._id,
-                    isSender: false
-                }));
-
-                // If the message is for the active conversation, mark it read instantly
-                if (activeConversationId === message.conversationId) {
-                    socket.emit("mark-read", { conversationId: message.conversationId });
-                    dispatch(markConversationRead({ conversationId: message.conversationId, currentUserId: user._id }));
-                }
-            });
-
-            // Listen for message-sent (acknowledgment for client sending)
-            socket.on("message-sent", (message) => {
-                console.log("[Socket] Message sent successfully acknowledged:", message.text);
-                dispatch(addMessage(message));
-                dispatch(updateConversationOnNewMessage({
-                    conversationId: message.conversationId,
-                    lastMessageText: message.text,
-                    updatedAt: new Date().toISOString(),
-                    currentUserId: user._id,
-                    isSender: true
-                }));
-            });
-
-            // Listen for messages-read (when the other participant reads our messages)
-            socket.on("messages-read", (data) => {
-                dispatch(updateMessageReadBy({
-                    conversationId: data.conversationId,
-                    readByUserId: data.readByUserId
-                }));
-            });
-
-            // Listen for typing status
-            socket.on("typing", (data) => {
-                dispatch(setTyping({
-                    conversationId: data.conversationId,
-                    userId: data.userId,
-                    userName: data.userName,
-                    isTyping: true
-                }));
-            });
-
-            socket.on("stop-typing", (data) => {
-                dispatch(setTyping({
-                    conversationId: data.conversationId,
-                    userId: data.userId,
-                    isTyping: false
-                }));
-            });
-
-            // Listen for online/offline updates
-            socket.on("user-online", (data) => {
-                dispatch(addUserOnline(data.userId));
-            });
-
-            socket.on("user-offline", (data) => {
-                dispatch(removeUserOffline(data.userId));
-            });
-
-            return () => {
-                socket.off("connect", handleConnect);
-                socket.off("online-users");
-                socket.off("receive-message");
-                socket.off("message-sent");
-                socket.off("messages-read");
-                socket.off("typing");
-                socket.off("stop-typing");
-                socket.off("user-online");
-                socket.off("user-offline");
-                disconnectSocket();
-            };
-        } else {
+        if (!token || !user) {
             disconnectSocket();
+            dispatch(setSocketConnected(false));
+            return undefined;
         }
-    }, [token, user, dispatch, activeConversationId]);
+
+        const socket = connectSocket(token);
+        const currentUserId = user._id;
+
+        const handleConnect = () => {
+            dispatch(setSocketConnected(true));
+            socket.emit("register-user", currentUserId);
+        };
+
+        const handleDisconnect = () => {
+            dispatch(setSocketConnected(false));
+        };
+
+        const handleOnlineUsers = (userIds) => {
+            dispatch(setOnlineUsers(userIds));
+        };
+
+        const handleNewMessage = (payload) => {
+            const message = payload.message || payload;
+            dispatch(receiveSocketMessage({
+                ...payload,
+                message,
+                currentUserId,
+                isSender: String(message.sender?._id || message.sender) === String(currentUserId)
+            }));
+        };
+
+        const handleMessageSent = (message) => {
+            dispatch(receiveSocketMessage({
+                message,
+                currentUserId,
+                isSender: true,
+                lastMessageText: message.text,
+                updatedAt: message.createdAt
+            }));
+        };
+
+        const handleUnreadCount = (payload) => {
+            dispatch(applyUnreadCountUpdate({
+                ...payload,
+                currentUserId
+            }));
+        };
+
+        const handleMessagesRead = (payload) => {
+            dispatch(applyMessagesRead({
+                ...payload,
+                currentUserId
+            }));
+        };
+
+        const handleChatUpdated = (payload) => {
+            dispatch(applyChatUpdate({
+                ...payload,
+                currentUserId
+            }));
+        };
+
+        const handleNotificationsUpdated = (payload) => {
+            dispatch(applyNotificationsUpdate(payload));
+        };
+
+        const handleTypingStatus = (payload) => {
+            dispatch(setTyping(payload));
+        };
+
+        const handleUserOnline = ({ userId }) => {
+            dispatch(addUserOnline(userId));
+        };
+
+        const handleUserOffline = ({ userId }) => {
+            dispatch(removeUserOffline(userId));
+        };
+
+        socket.on("connect", handleConnect);
+        socket.on("disconnect", handleDisconnect);
+        socket.on("online-users", handleOnlineUsers);
+        socket.on("new_message", handleNewMessage);
+        socket.on("receive-message", handleNewMessage);
+        socket.on("message-sent", handleMessageSent);
+        socket.on("unread_count_updated", handleUnreadCount);
+        socket.on("messages_read", handleMessagesRead);
+        socket.on("messages-read", handleMessagesRead);
+        socket.on("chat_updated", handleChatUpdated);
+        socket.on("conversation-updated", handleChatUpdated);
+        socket.on("notifications_updated", handleNotificationsUpdated);
+        socket.on("typing_status", handleTypingStatus);
+        socket.on("typing", (payload) => handleTypingStatus({ ...payload, isTyping: true }));
+        socket.on("stop-typing", (payload) => handleTypingStatus({ ...payload, isTyping: false }));
+        socket.on("user_online_status", ({ userId, isOnline }) => {
+            if (isOnline) {
+                dispatch(addUserOnline(userId));
+            } else {
+                dispatch(removeUserOffline(userId));
+            }
+        });
+        socket.on("user-online", handleUserOnline);
+        socket.on("user-offline", handleUserOffline);
+
+        if (socket.connected) {
+            handleConnect();
+        }
+
+        return () => {
+            socket.off("connect", handleConnect);
+            socket.off("disconnect", handleDisconnect);
+            socket.off("online-users", handleOnlineUsers);
+            socket.off("new_message", handleNewMessage);
+            socket.off("receive-message", handleNewMessage);
+            socket.off("message-sent", handleMessageSent);
+            socket.off("unread_count_updated", handleUnreadCount);
+            socket.off("messages_read", handleMessagesRead);
+            socket.off("messages-read", handleMessagesRead);
+            socket.off("chat_updated", handleChatUpdated);
+            socket.off("conversation-updated", handleChatUpdated);
+            socket.off("notifications_updated", handleNotificationsUpdated);
+            socket.off("typing_status", handleTypingStatus);
+            socket.off("typing");
+            socket.off("stop-typing");
+            socket.off("user_online_status");
+            socket.off("user-online", handleUserOnline);
+            socket.off("user-offline", handleUserOffline);
+            disconnectSocket();
+            dispatch(setSocketConnected(false));
+        };
+    }, [token, user, dispatch]);
 
     return <>{children}</>;
 }

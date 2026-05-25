@@ -45,6 +45,20 @@ const gigSchema = new mongoose.Schema(
             type: String,
             enum: ["open", "closed"],
             default: "open"
+        },
+        hiredProposal: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Proposal",
+            default: null
+        },
+        hiredFreelancer: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null
+        },
+        hiredAt: {
+            type: Date,
+            default: null
         }
     },
     {

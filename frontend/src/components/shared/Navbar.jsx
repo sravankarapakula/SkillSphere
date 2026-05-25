@@ -17,6 +17,7 @@ export default function Navbar({ onToggleSidebar }) {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { user } = useSelector((state) => state.auth);
+    const { notificationsTotal = 0 } = useSelector((state) => state.message || {});
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -69,7 +70,11 @@ export default function Navbar({ onToggleSidebar }) {
                 {/* Notification bell */}
                 <button className="relative p-2 rounded-lg hover:bg-surface-100 text-surface-500 transition cursor-pointer" id="notification-bell">
                     <HiOutlineBell className="h-5 w-5" />
-                    <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-danger rounded-full" />
+                    {notificationsTotal > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 bg-danger text-white text-[9px] font-bold h-4 min-w-4 px-1 rounded-full flex items-center justify-center">
+                            {notificationsTotal > 99 ? "99+" : notificationsTotal}
+                        </span>
+                    )}
                 </button>
 
                 {/* User dropdown */}

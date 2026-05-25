@@ -32,6 +32,35 @@ const conversationSchema = new mongoose.Schema(
             type: Map,
             of: Number,
             default: {}
+        },
+        lastReadMessage: {
+            type: Map,
+            of: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Message"
+            },
+            default: {}
+        },
+        lastVisibleMessage: {
+            type: Map,
+            of: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Message"
+            },
+            default: {}
+        },
+        unreadAnchorMessage: {
+            type: Map,
+            of: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Message"
+            },
+            default: {}
+        },
+        lastSeenTimestamp: {
+            type: Map,
+            of: Date,
+            default: {}
         }
     },
     {

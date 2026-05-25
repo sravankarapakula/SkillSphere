@@ -13,7 +13,8 @@ const PORT = process.env.PORT || 5000;
 
 // Create HTTP server and attach Socket.IO
 const httpServer = http.createServer(app);
-initializeSocket(httpServer);
+const io = initializeSocket(httpServer);
+app.set("io", io);
 
 mongoose.connect(process.env.MONGO_URI)
 .then(() => {
@@ -25,4 +26,4 @@ mongoose.connect(process.env.MONGO_URI)
 })
 .catch((err) => {
     console.log(err);
-});
+});

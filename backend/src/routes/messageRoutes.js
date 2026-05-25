@@ -91,11 +91,28 @@ router.post(
             .isMongoId()
             .withMessage("Valid conversation ID is required"),
         body("text")
+            .optional({ values: "undefined" })
+            .isString()
+            .withMessage("Message text must be a string")
             .trim()
-            .notEmpty()
-            .withMessage("Message text is required")
             .isLength({ max: 5000 })
-            .withMessage("Message too long (max 5000 characters)")
+            .withMessage("Message too long (max 5000 characters)"),
+        body("attachments")
+            .optional()
+            .isArray()
+            .withMessage("Attachments must be an array"),
+        body("attachments.*.url")
+            .optional()
+            .isString()
+            .withMessage("Attachment URL must be a string"),
+        body("attachments.*.filename")
+            .optional()
+            .isString()
+            .withMessage("Attachment filename must be a string"),
+        body("attachments.*.mimetype")
+            .optional()
+            .isString()
+            .withMessage("Attachment mimetype must be a string")
     ],
     validateRequest,
     sendMessage

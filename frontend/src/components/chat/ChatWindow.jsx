@@ -1,57 +1,216 @@
-import React, { useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { fetchMessages } from "../../redux/slices/messageSlice";
+import { fetchMessages, markMessagesReadOptimistic } from "../../redux/slices/messageSlice";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
 import TypingIndicator from "./TypingIndicator";
 import LoadingSpinner from "../shared/LoadingSpinner";
 import { getSocket } from "../../services/socketService";
 
+const isReadBy = (message, userId) => (
+    message?.readBy || []
+).some((id) => String(id?._id || id) === String(userId));
+
+const getSenderId = (message) => String(message?.sender?._id || message?.sender || "");
+
+function UnreadDivider({ count }) {
+    return (
+        <div className="my-4 flex items-center gap-3 animate-fade-in">
+            <div className="h-px flex-1 bg-danger/30" />
+            <span className="rounded-full bg-danger/10 px-3 py-1 text-[11px] font-bold text-danger shadow-sm">
+                {count} unread {count === 1 ? "message" : "messages"}
+            </span>
+            <div className="h-px flex-1 bg-danger/30" />
+        </div>
+    );
+}
+
 export default function ChatWindow({ conversation, currentUser, onlineUsers, onBack }) {
     const dispatch = useDispatch();
     const conversationId = conversation?._id;
+    const currentUserId = currentUser?._id;
 
-    const { messages: allMessages, isLoadingMessages, hasMore: allHasMore, currentPage: allCurrentPage, typingUsers } = useSelector(
-        (state) => state.message
-    );
+    const {
+        messages: allMessages,
+        unreadDividerMessageId,
+        isLoadingMessages,
+        hasMore: allHasMore,
+        currentPage: allCurrentPage,
+        typingUsers
+    } = useSelector((state) => state.message);
 
-    const messages = allMessages[conversationId] || [];
+    const messages = useMemo(() => allMessages[conversationId] || [], [allMessages, conversationId]);
     const hasMore = allHasMore[conversationId] || false;
     const currentPage = allCurrentPage[conversationId] || 1;
     const typingList = typingUsers[conversationId] || [];
+    const dividerMessageId = unreadDividerMessageId[conversationId];
 
     const containerRef = useRef(null);
     const messagesEndRef = useRef(null);
+    const messageNodesRef = useRef(new Map());
+    const pendingReadIdsRef = useRef(new Set());
+    const readFlushTimerRef = useRef(null);
+    const wasAtBottomRef = useRef(true);
+    const previousMessageCountRef = useRef(0);
+    const unreadAnchorScrolledRef = useRef(null);
     const [prevScrollHeight, setPrevScrollHeight] = useState(0);
+    const [showNewMessagesButton, setShowNewMessagesButton] = useState(false);
 
     const otherParticipant = conversation?.participants.find(
-        (participant) => String(participant._id) !== String(currentUser?._id)
+        (participant) => String(participant._id) !== String(currentUserId)
     );
     const isOnline = onlineUsers.some((id) => String(id) === String(otherParticipant?._id));
+    const unreadCount = conversation?.unreadCounts?.[String(currentUserId)] || 0;
+
+    const incomingUnreadIds = useMemo(() => new Set(
+        messages
+            .filter((message) => getSenderId(message) !== String(currentUserId) && !isReadBy(message, currentUserId))
+            .map((message) => String(message._id))
+    ), [messages, currentUserId]);
+
+    const scrollToBottom = useCallback((behavior = "smooth") => {
+        messagesEndRef.current?.scrollIntoView({ behavior });
+        setShowNewMessagesButton(false);
+    }, []);
+
+    const updateBottomState = useCallback(() => {
+        const container = containerRef.current;
+        if (!container) return true;
+
+        const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+        const isAtBottom = distanceFromBottom < 80;
+        wasAtBottomRef.current = isAtBottom;
+        if (isAtBottom) {
+            setShowNewMessagesButton(false);
+        }
+        return isAtBottom;
+    }, []);
+
+    const flushReadIds = useCallback(() => {
+        if (!conversationId || !currentUserId || pendingReadIdsRef.current.size === 0) return;
+
+        const messageIds = Array.from(pendingReadIdsRef.current);
+        const lastVisibleMessageId = messageIds[messageIds.length - 1];
+        pendingReadIdsRef.current.clear();
+
+        dispatch(markMessagesReadOptimistic({ conversationId, messageIds, currentUserId }));
+
+        const socket = getSocket();
+        if (socket) {
+            socket.emit("message_visible", { conversationId, messageIds, lastVisibleMessageId });
+        }
+    }, [conversationId, currentUserId, dispatch]);
+
+    const queueReadId = useCallback((messageId) => {
+        pendingReadIdsRef.current.add(String(messageId));
+        if (readFlushTimerRef.current) {
+            clearTimeout(readFlushTimerRef.current);
+        }
+        readFlushTimerRef.current = setTimeout(flushReadIds, 250);
+    }, [flushReadIds]);
+
+    const registerMessageNode = useCallback((messageId, node) => {
+        if (!messageId) return;
+
+        if (node) {
+            messageNodesRef.current.set(String(messageId), node);
+        } else {
+            messageNodesRef.current.delete(String(messageId));
+        }
+    }, []);
 
     useEffect(() => {
-        if (conversationId) {
-            dispatch(fetchMessages({ conversationId, page: 1 }));
-            const socket = getSocket();
-            if (socket) {
-                socket.emit("mark-read", { conversationId });
+        if (!conversationId) return undefined;
+
+        dispatch(fetchMessages({ conversationId, page: 1 }));
+        previousMessageCountRef.current = 0;
+        unreadAnchorScrolledRef.current = null;
+        wasAtBottomRef.current = true;
+
+        const socket = getSocket();
+        socket?.emit("join_chat", { conversationId });
+        socket?.emit("open_chat", { conversationId });
+
+        const pendingReadIds = pendingReadIdsRef.current;
+        return () => {
+            socket?.emit("leave_chat", { conversationId });
+            pendingReadIds.clear();
+            if (readFlushTimerRef.current) {
+                clearTimeout(readFlushTimerRef.current);
             }
-        }
+        };
     }, [conversationId, dispatch]);
+
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container || !conversationId || !currentUserId || incomingUnreadIds.size === 0) return undefined;
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (!entry.isIntersecting || entry.intersectionRatio < 0.6) return;
+
+                const messageId = entry.target.dataset.messageId;
+                if (incomingUnreadIds.has(String(messageId))) {
+                    queueReadId(messageId);
+                }
+            });
+        }, {
+            root: container,
+            threshold: [0.6]
+        });
+
+        incomingUnreadIds.forEach((messageId) => {
+            const node = messageNodesRef.current.get(String(messageId));
+            if (node) {
+                observer.observe(node);
+            }
+        });
+
+        return () => observer.disconnect();
+    }, [conversationId, currentUserId, incomingUnreadIds, queueReadId]);
 
     useEffect(() => {
         if (prevScrollHeight && containerRef.current) {
             const newScrollHeight = containerRef.current.scrollHeight;
             containerRef.current.scrollTop = newScrollHeight - prevScrollHeight;
             setPrevScrollHeight(0);
+            return;
         }
-    }, [messages, prevScrollHeight]);
+
+        const previousCount = previousMessageCountRef.current;
+        const nextCount = messages.length;
+        previousMessageCountRef.current = nextCount;
+
+        if (nextCount === 0) return;
+
+        const latest = messages[nextCount - 1];
+        const latestIsOwn = getSenderId(latest) === String(currentUserId);
+        const hasUnreadAnchor = Boolean(dividerMessageId && unreadCount > 0);
+
+        if (
+            hasUnreadAnchor
+            && unreadAnchorScrolledRef.current === null
+            && messageNodesRef.current.has(String(dividerMessageId))
+        ) {
+            const node = messageNodesRef.current.get(String(dividerMessageId));
+            node.scrollIntoView({ block: "start", behavior: previousCount === 0 ? "auto" : "smooth" });
+            unreadAnchorScrolledRef.current = "done";
+            wasAtBottomRef.current = false;
+            return;
+        }
+
+        if ((previousCount === 0 && !hasUnreadAnchor) || latestIsOwn || wasAtBottomRef.current) {
+            scrollToBottom(previousCount === 0 ? "auto" : "smooth");
+        } else if (nextCount > previousCount) {
+            setShowNewMessagesButton(true);
+        }
+    }, [messages, prevScrollHeight, currentUserId, scrollToBottom, dividerMessageId, unreadCount]);
 
     useEffect(() => {
-        if (!prevScrollHeight) {
-            messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+        if (typingList.length > 0 && wasAtBottomRef.current) {
+            scrollToBottom("smooth");
         }
-    }, [messages, prevScrollHeight, typingList]);
+    }, [typingList.length, scrollToBottom]);
 
     const handleLoadMore = () => {
         if (containerRef.current) {
@@ -63,7 +222,7 @@ export default function ChatWindow({ conversation, currentUser, onlineUsers, onB
     const handleSendMessage = (text) => {
         const socket = getSocket();
         if (socket && conversationId) {
-            socket.emit("send-message", { conversationId, text });
+            socket.emit("send_message", { conversationId, text });
         }
     };
 
@@ -122,58 +281,85 @@ export default function ChatWindow({ conversation, currentUser, onlineUsers, onB
                         </p>
                     </div>
                 </div>
+
+                {unreadCount > 0 && (
+                    <span className="rounded-full bg-danger/10 px-2.5 py-1 text-[11px] font-bold text-danger">
+                        {unreadCount} unread
+                    </span>
+                )}
             </div>
 
-            <div
-                ref={containerRef}
-                className="flex-1 overflow-y-auto px-4 py-4"
-            >
-                {hasMore && (
-                    <div className="flex justify-center mb-4">
-                        <button
-                            onClick={handleLoadMore}
-                            disabled={isLoadingMessages}
-                            className="px-3 py-1.5 bg-white border border-surface-200 rounded-full text-xs font-semibold text-primary-600 hover:bg-primary-50 disabled:opacity-50 transition shadow-sm cursor-pointer"
-                        >
-                            {isLoadingMessages ? "Loading..." : "Load Older Messages"}
-                        </button>
-                    </div>
-                )}
-
-                {isLoadingMessages && messages.length === 0 ? (
-                    <div className="h-full flex items-center justify-center">
-                        <LoadingSpinner size="md" />
-                    </div>
-                ) : messages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-8">
-                        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-surface-300 shadow-sm border border-surface-100 mb-3">
-                            <svg className="w-6 h-6 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                            </svg>
+            <div className="relative flex-1 overflow-hidden">
+                <div
+                    ref={containerRef}
+                    onScroll={updateBottomState}
+                    className="h-full overflow-y-auto px-4 py-4"
+                >
+                    {hasMore && (
+                        <div className="flex justify-center mb-4">
+                            <button
+                                onClick={handleLoadMore}
+                                disabled={isLoadingMessages}
+                                className="px-3 py-1.5 bg-white border border-surface-200 rounded-full text-xs font-semibold text-primary-600 hover:bg-primary-50 disabled:opacity-50 transition shadow-sm cursor-pointer"
+                            >
+                                {isLoadingMessages ? "Loading..." : "Load Older Messages"}
+                            </button>
                         </div>
-                        <h4 className="text-sm font-semibold text-surface-800 mb-1">Say hello!</h4>
-                        <p className="text-xs text-surface-400 max-w-[200px]">
-                            Start the conversation by sending a message below.
-                        </p>
-                    </div>
-                ) : (
-                    messages.map((msg) => {
-                        const isOwnMessage = String(msg.sender?._id || msg.sender) === String(currentUser?._id);
-                        return (
-                            <MessageBubble
-                                key={msg._id}
-                                message={msg}
-                                isOwn={isOwnMessage}
-                            />
-                        );
-                    })
-                )}
+                    )}
 
-                {typingList.length > 0 && (
-                    <TypingIndicator userName={typingList[0].userName} />
-                )}
+                    {isLoadingMessages && messages.length === 0 ? (
+                        <div className="h-full flex items-center justify-center">
+                            <LoadingSpinner size="md" />
+                        </div>
+                    ) : messages.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-center p-8">
+                            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-surface-300 shadow-sm border border-surface-100 mb-3">
+                                <svg className="w-6 h-6 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-9 9-9s9 4.582 9 9z"></path>
+                                </svg>
+                            </div>
+                            <h4 className="text-sm font-semibold text-surface-800 mb-1">Say hello!</h4>
+                            <p className="text-xs text-surface-400 max-w-[200px]">
+                                Start the conversation by sending a message below.
+                            </p>
+                        </div>
+                    ) : (
+                        messages.map((msg) => {
+                            const isOwnMessage = getSenderId(msg) === String(currentUserId);
+                            return (
+                                <Fragment key={msg._id}>
+                                    {dividerMessageId && String(dividerMessageId) === String(msg._id) && (
+                                        <UnreadDivider count={unreadCount || incomingUnreadIds.size} />
+                                    )}
+                                    <div
+                                        ref={(node) => registerMessageNode(msg._id, node)}
+                                        data-message-id={msg._id}
+                                    >
+                                        <MessageBubble
+                                            message={msg}
+                                            isOwn={isOwnMessage}
+                                        />
+                                    </div>
+                                </Fragment>
+                            );
+                        })
+                    )}
 
-                <div ref={messagesEndRef} />
+                    {typingList.length > 0 && (
+                        <TypingIndicator userName={typingList[0].userName} />
+                    )}
+
+                    <div ref={messagesEndRef} />
+                </div>
+
+                {showNewMessagesButton && (
+                    <button
+                        onClick={() => scrollToBottom("smooth")}
+                        className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-primary-600 px-4 py-2 text-xs font-bold text-white shadow-lg transition hover:bg-primary-700"
+                    >
+                        New messages
+                    </button>
+                )}
             </div>
 
             <MessageInput

@@ -1,15 +1,8 @@
-import React from "react";
 import { useDispatch } from "react-redux";
 import { setActiveConversation } from "../../redux/slices/messageSlice";
 
 export default function ChatSidebar({ conversations, isLoading, currentUser, onlineUsers, activeId, onSelectMobileToggle }) {
     const dispatch = useDispatch();
-
-    const getOtherParticipant = (conv) => {
-        return conv.participants.find(
-            (p) => String(p._id) !== String(currentUser?._id)
-        );
-    };
 
     const formatTimestamp = (dateString) => {
         if (!dateString) return "";

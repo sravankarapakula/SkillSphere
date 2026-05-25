@@ -34,8 +34,7 @@ export const getStoredAuth = () => ({
 export const storeAuth = ({
     accessToken,
     refreshToken,
-    user,
-    rememberMe = false
+    user
 }) => {
     // Clear both localStorage and sessionStorage to purge any old stale states
     clearAuth();
