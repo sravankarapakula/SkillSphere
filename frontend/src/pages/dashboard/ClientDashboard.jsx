@@ -80,6 +80,12 @@ export default function ClientDashboard() {
             description: "See the current gig marketplace",
             to: "/dashboard/projects",
             icon: HiOutlineMagnifyingGlass
+        },
+        {
+            label: "View My Projects",
+            description: "Track active projects and milestones",
+            to: "/dashboard/my-projects",
+            icon: HiOutlineFolderOpen
         }
     ];
 

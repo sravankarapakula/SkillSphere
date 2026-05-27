@@ -6,6 +6,7 @@ import {
     HiOutlineBriefcase,
     HiOutlineCheckCircle,
     HiOutlineDocumentText,
+    HiOutlineFolderOpen,
     HiOutlineMagnifyingGlass,
     HiOutlineQueueList,
     HiOutlineUser,
@@ -74,6 +75,12 @@ export default function FreelancerDashboard() {
             description: "Track pending and decided bids",
             to: "/dashboard/proposals",
             icon: HiOutlineDocumentText
+        },
+        {
+            label: "View My Projects",
+            description: "Track active contracts and milestones",
+            to: "/dashboard/my-projects",
+            icon: HiOutlineFolderOpen
         },
         {
             label: "Complete Profile",

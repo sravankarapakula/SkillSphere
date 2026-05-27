@@ -13,6 +13,10 @@ import {
     removeUserOffline,
     setTyping
 } from "../../redux/slices/messageSlice";
+import {
+    applySocketProjectUpdate,
+    applySocketProjectCreated
+} from "../../redux/slices/projectSlice";
 
 export default function SocketProvider({ children }) {
     const { token, user } = useSelector((state) => state.auth);
@@ -98,6 +102,14 @@ export default function SocketProvider({ children }) {
             dispatch(removeUserOffline(userId));
         };
 
+        const handleProjectCreated = (payload) => {
+            dispatch(applySocketProjectCreated(payload));
+        };
+
+        const handleProjectUpdated = (payload) => {
+            dispatch(applySocketProjectUpdate(payload));
+        };
+
         socket.on("connect", handleConnect);
         socket.on("disconnect", handleDisconnect);
         socket.on("online-users", handleOnlineUsers);
@@ -122,6 +134,8 @@ export default function SocketProvider({ children }) {
         });
         socket.on("user-online", handleUserOnline);
         socket.on("user-offline", handleUserOffline);
+        socket.on("project_created", handleProjectCreated);
+        socket.on("project_updated", handleProjectUpdated);
 
         if (socket.connected) {
             handleConnect();
@@ -146,6 +160,8 @@ export default function SocketProvider({ children }) {
             socket.off("user_online_status");
             socket.off("user-online", handleUserOnline);
             socket.off("user-offline", handleUserOffline);
+            socket.off("project_created", handleProjectCreated);
+            socket.off("project_updated", handleProjectUpdated);
             disconnectSocket();
             dispatch(setSocketConnected(false));
         };

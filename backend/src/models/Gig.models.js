@@ -59,7 +59,16 @@ const gigSchema = new mongoose.Schema(
         hiredAt: {
             type: Date,
             default: null
-        }
+        },
+        gigStatus: {
+            type: String,
+            enum: ["draft", "open", "in_progress", "completed", "closed"],
+            default: "open"
+        },
+        activeFreelancers: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        }]
     },
     {
         timestamps: { createdAt: true, updatedAt: false }

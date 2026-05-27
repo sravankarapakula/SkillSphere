@@ -1,14 +1,12 @@
 const Gig = require("../models/Gig.models");
 const Proposal = require("../models/Proposal.models");
+const Project = require("../models/Project.models");
 const User = require("../models/user.models");
 const asyncHandler = require("../utils/asynchandler");
 
 const getClientDashboard = asyncHandler(async (req, res) => {
     const gigs = await Gig.find({ client: req.user._id }).select("_id status");
     const gigIds = gigs.map((gig) => gig._id);
-    const openGigIds = gigs
-        .filter((gig) => gig.status === "open")
-        .map((gig) => gig._id);
 
     const [
         totalGigsPosted,
@@ -17,7 +15,8 @@ const getClientDashboard = asyncHandler(async (req, res) => {
         totalProposalsReceived,
         acceptedProposals,
         pendingProposals,
-        activeProjects
+        activeProjects,
+        completedProjects
     ] = await Promise.all([
         Gig.countDocuments({ client: req.user._id }),
         Gig.countDocuments({ client: req.user._id, status: "open" }),
@@ -25,7 +24,8 @@ const getClientDashboard = asyncHandler(async (req, res) => {
         Proposal.countDocuments({ gig: { $in: gigIds } }),
         Proposal.countDocuments({ gig: { $in: gigIds }, status: "accepted" }),
         Proposal.countDocuments({ gig: { $in: gigIds }, status: "pending" }),
-        Proposal.countDocuments({ gig: { $in: openGigIds }, status: "accepted" })
+        Project.countDocuments({ client: req.user._id, status: { $in: ["active", "in_progress", "revision"] } }),
+        Project.countDocuments({ client: req.user._id, status: "completed" })
     ]);
 
     res.status(200).json({
@@ -37,18 +37,13 @@ const getClientDashboard = asyncHandler(async (req, res) => {
             totalProposalsReceived,
             acceptedProposals,
             pendingProposals,
-            activeProjects
+            activeProjects,
+            completedProjects
         }
     });
 });
 
 const getFreelancerDashboard = asyncHandler(async (req, res) => {
-    const acceptedProposalsForGigs = await Proposal.find({
-        freelancer: req.user._id,
-        status: "accepted"
-    }).select("gig");
-    const acceptedGigIds = acceptedProposalsForGigs.map((proposal) => proposal.gig);
-
     const [
         totalProposalsSent,
         acceptedProposals,
@@ -61,8 +56,8 @@ const getFreelancerDashboard = asyncHandler(async (req, res) => {
         Proposal.countDocuments({ freelancer: req.user._id, status: "accepted" }),
         Proposal.countDocuments({ freelancer: req.user._id, status: "rejected" }),
         Proposal.countDocuments({ freelancer: req.user._id, status: "pending" }),
-        Gig.countDocuments({ _id: { $in: acceptedGigIds }, status: "open" }),
-        Gig.countDocuments({ _id: { $in: acceptedGigIds }, status: "closed" })
+        Project.countDocuments({ freelancer: req.user._id, status: { $in: ["active", "in_progress", "revision"] } }),
+        Project.countDocuments({ freelancer: req.user._id, status: "completed" })
     ]);
 
     res.status(200).json({
@@ -86,14 +81,16 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
         totalClients,
         totalGigs,
         totalProposals,
-        openProjects
+        openProjects,
+        activeProjects
     ] = await Promise.all([
         User.countDocuments(),
         User.countDocuments({ role: "freelancer" }),
         User.countDocuments({ role: "client" }),
         Gig.countDocuments(),
         Proposal.countDocuments(),
-        Gig.countDocuments({ status: "open" })
+        Gig.countDocuments({ status: "open" }),
+        Project.countDocuments({ status: { $in: ["active", "in_progress"] } })
     ]);
 
     res.status(200).json({
@@ -104,7 +101,8 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
             totalClients,
             totalGigs,
             totalProposals,
-            openProjects
+            openProjects,
+            activeProjects
         }
     });
 });

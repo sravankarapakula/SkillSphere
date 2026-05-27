@@ -10,7 +10,8 @@ import {
     HiOutlineChartBarSquare,
     HiOutlineDocumentText,
     HiOutlineXMark,
-    HiOutlineMagnifyingGlass
+    HiOutlineMagnifyingGlass,
+    HiOutlineFolderOpen
 } from "react-icons/hi2";
 
 const freelancerLinks = [
@@ -18,6 +19,7 @@ const freelancerLinks = [
     { to: "/dashboard/profile", label: "My Profile", icon: HiOutlineUser },
     { to: "/dashboard/projects", label: "Projects", icon: HiOutlineBriefcase },
     { to: "/dashboard/proposals", label: "Proposals", icon: HiOutlineDocumentText },
+    { to: "/dashboard/my-projects", label: "My Projects", icon: HiOutlineFolderOpen },
     { to: "/dashboard/messages", label: "Messages", icon: HiOutlineChatBubbleLeftRight },
     { to: "/dashboard/settings", label: "Settings", icon: HiOutlineCog6Tooth }
 ];
@@ -26,6 +28,7 @@ const clientLinks = [
     { to: "/dashboard", label: "Dashboard", icon: HiOutlineHome, end: true },
     { to: "/dashboard/browse", label: "Browse Talent", icon: HiOutlineMagnifyingGlass },
     { to: "/dashboard/gigs/my", label: "My Gigs", icon: HiOutlineBriefcase },
+    { to: "/dashboard/my-projects", label: "My Projects", icon: HiOutlineFolderOpen },
     { to: "/dashboard/messages", label: "Messages", icon: HiOutlineChatBubbleLeftRight },
     { to: "/dashboard/settings", label: "Settings", icon: HiOutlineCog6Tooth }
 ];

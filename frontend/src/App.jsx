@@ -33,6 +33,8 @@ import MyGigsPage from "./pages/gigs/MyGigsPage";
 import MyProposalsPage from "./pages/proposals/MyProposalsPage";
 import GigProposalsPage from "./pages/proposals/GigProposalsPage";
 import MessagesPage from "./pages/Messages";
+import MyProjectsPage from "./pages/projects/MyProjectsPage";
+import ProjectWorkspace from "./pages/projects/ProjectWorkspace";
 import SocketProvider from "./components/shared/SocketProvider";
 
 export default function App() {
@@ -117,6 +119,10 @@ export default function App() {
                     >
                         <Route path="/dashboard/proposals" element={<MyProposalsPage />} />
                     </Route>
+
+                    {/* Project workspace routes */}
+                    <Route path="/dashboard/my-projects" element={<MyProjectsPage />} />
+                    <Route path="/dashboard/my-projects/:projectId" element={<ProjectWorkspace />} />
 
                     {/* Placeholder routes for later stages */}
                     <Route path="/dashboard/messages" element={<MessagesPage />} />
