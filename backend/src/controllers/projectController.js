@@ -2,6 +2,7 @@ const Project = require("../models/Project.models");
 const Conversation = require("../models/Conversation");
 const Gig = require("../models/Gig.models");
 const asyncHandler = require("../utils/asynchandler");
+const { enrichConversation } = require("../services/chatReadService");
 
 // Socket helper to emit project updates
 const emitProjectUpdate = (req, project) => {
@@ -64,12 +65,14 @@ const getProjectById = asyncHandler(async (req, res) => {
     }
 
     // Find the linked conversation
-    const conversation = await Conversation.findOne({ proposal: project.proposal._id })
-        .populate("participants", "name email profileImage");
+    const conversation = await Conversation.findOne({ proposalId: project.proposal._id })
+        .populate("participants", "name email profileImage profilePicture role");
+
+    const enrichedConversation = conversation ? enrichConversation(conversation, req.user._id) : null;
 
     res.status(200).json({
         success: true,
-        data: { project, conversation }
+        data: { project, conversation: enrichedConversation }
     });
 });
 

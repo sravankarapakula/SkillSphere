@@ -180,10 +180,32 @@ const markMessagesRead = async ({ conversationId, userId, messageIds, lastVisibl
     };
 };
 
+const enrichConversation = (conversation, userId) => {
+    if (!conversation) return null;
+
+    const otherParticipant = (conversation.participants || []).find(
+        (p) => String(p._id || p) !== String(userId)
+    ) || null;
+
+    const convObj = typeof conversation.toObject === "function" ? conversation.toObject() : conversation;
+
+    return {
+        ...convObj,
+        ...buildConversationReadState(conversation),
+        participant: otherParticipant,
+        gigId: conversation.gigId || conversation.proposalId?.gig?._id || conversation.proposalId?.gig || null,
+        proposalId: conversation.proposalId?._id || conversation.proposalId || null,
+        gigTitle: conversation.gigTitle || conversation.proposalId?.gig?.title || "",
+        unreadCount: getUnreadCount(conversation, userId),
+        lastMessage: conversation.lastMessage
+    };
+};
+
 module.exports = {
     buildConversationReadState,
     buildMessagePayload,
     chatRoom,
+    enrichConversation,
     getFirstUnreadMessage,
     getUnreadCount,
     isParticipant,

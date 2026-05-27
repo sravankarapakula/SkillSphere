@@ -1,6 +1,7 @@
 const Gig = require("../models/Gig.models");
 const Proposal = require("../models/Proposal.models");
 const Project = require("../models/Project.models");
+const Conversation = require("../models/Conversation");
 const asyncHandler = require("../utils/asynchandler");
 
 // Socket helper to emit state updates
@@ -103,36 +104,6 @@ const getGigProposals = asyncHandler(async (req, res) => {
     });
 });
 
-const updateProposalStatus = asyncHandler(async (req, res) => {
-    const proposal = await Proposal.findById(req.params.id)
-        .populate("gig", "client title")
-        .populate("freelancer", "name email profileImage");
-
-    if (!proposal) {
-        return res.status(404).json({
-            success: false,
-            message: "Proposal not found"
-        });
-    }
-
-    if (proposal.gig.client.toString() !== req.user._id.toString()) {
-        return res.status(403).json({
-            success: false,
-            message: "Only the gig owner can update proposal status"
-        });
-    }
-
-    proposal.status = req.body.status;
-    await proposal.save();
-
-    emitProposalUpdate(req, proposal);
-
-    res.status(200).json({
-        success: true,
-        message: "Proposal status updated",
-        data: { proposal }
-    });
-});
 
 // PATCH /proposals/:id/shortlist
 const shortlistProposal = asyncHandler(async (req, res) => {
@@ -339,8 +310,28 @@ const acceptProposal = asyncHandler(async (req, res) => {
     gig.activeFreelancers = [proposal.freelancer._id];
     await gig.save();
 
+    // Update linked conversation to transition it to a project chat
+    const conversation = await Conversation.findOne({ proposalId: proposal._id });
+    if (conversation) {
+        conversation.projectId = project._id;
+        conversation.conversationType = "project";
+        await conversation.save();
+    }
+
     // Socket instances
     const io = req.app.get("io");
+
+    // Emit chat update to both users if conversation was updated
+    if (conversation && io) {
+        const chatPayload = {
+            conversationId: conversation._id.toString(),
+            projectId: project._id.toString(),
+            conversationType: "project",
+            updatedAt: conversation.updatedAt
+        };
+        io.to(`user:${gig.client}`).emit("chat_updated", chatPayload);
+        io.to(`user:${proposal.freelancer._id}`).emit("chat_updated", chatPayload);
+    }
 
     // Optionally reject other proposals
     const rejectOthers = req.body.rejectOthers !== false;
@@ -378,6 +369,45 @@ const acceptProposal = asyncHandler(async (req, res) => {
         success: true,
         message: "Proposal accepted and project created successfully",
         data: { proposal, project }
+    });
+});
+
+const updateProposalStatus = asyncHandler(async (req, res, next) => {
+    const { status } = req.body;
+    if (status === "accepted") {
+        return acceptProposal(req, res, next);
+    }
+    if (status === "rejected") {
+        return rejectProposal(req, res, next);
+    }
+
+    const proposal = await Proposal.findById(req.params.id)
+        .populate("gig", "client title")
+        .populate("freelancer", "name email profileImage");
+
+    if (!proposal) {
+        return res.status(404).json({
+            success: false,
+            message: "Proposal not found"
+        });
+    }
+
+    if (proposal.gig.client.toString() !== req.user._id.toString()) {
+        return res.status(403).json({
+            success: false,
+            message: "Only the gig owner can update proposal status"
+        });
+    }
+
+    proposal.status = status;
+    await proposal.save();
+
+    emitProposalUpdate(req, proposal);
+
+    res.status(200).json({
+        success: true,
+        message: "Proposal status updated",
+        data: { proposal }
     });
 });
 

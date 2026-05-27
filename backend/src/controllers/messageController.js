@@ -13,6 +13,7 @@ const {
 const {
     buildConversationReadState,
     buildMessagePayload,
+    enrichConversation,
     getFirstUnreadMessage,
     markMessagesRead
 } = require("../services/chatReadService");
@@ -31,8 +32,8 @@ const createConversation = asyncHandler(async (req, res) => {
         return errorResponse(res, "Valid proposalId is required", 400);
     }
 
-    // Find the proposal and verify ownership
-    const proposal = await Proposal.findById(proposalId).populate("gig", "client");
+    // Find the proposal and verify ownership (need gig client to check ownership and title for snapshot)
+    const proposal = await Proposal.findById(proposalId).populate("gig", "client title");
 
     if (!proposal) {
         return errorResponse(res, "Proposal not found", 404);
@@ -44,17 +45,26 @@ const createConversation = asyncHandler(async (req, res) => {
     }
 
     // Check if a conversation already exists for this proposal
-    const existingConversation = await Conversation.findOne({ proposal: proposalId })
+    const existingConversation = await Conversation.findOne({ proposalId })
         .populate("participants", "name email profileImage profilePicture role");
 
     if (existingConversation) {
-        return successResponse(res, { conversation: existingConversation }, "Conversation already exists");
+        if (!existingConversation.gigTitle) {
+            await existingConversation.populate({
+                path: "proposalId",
+                populate: { path: "gig", select: "title" }
+            });
+        }
+        return successResponse(res, { conversation: enrichConversation(existingConversation, req.user._id) }, "Conversation already exists");
     }
 
     // Create the conversation
     const conversation = await Conversation.create({
         participants: [req.user._id, proposal.freelancer],
-        proposal: proposalId,
+        proposalId: proposalId,
+        gigId: proposal.gig._id,
+        gigTitle: proposal.gig.title || "",
+        projectId: null,
         conversationType: "proposal",
         unreadCounts: new Map([
             [req.user._id.toString(), 0],
@@ -78,26 +88,22 @@ const createConversation = asyncHandler(async (req, res) => {
     // Populate participants for the response
     await conversation.populate("participants", "name email profileImage profilePicture role");
 
-    return successResponse(res, { conversation }, "Conversation created", 201);
+    return successResponse(res, { conversation: enrichConversation(conversation, req.user._id) }, "Conversation created", 201);
 });
 
-/**
- * GET /api/conversations
- * Fetch all conversations the authenticated user participates in.
- */
 const getConversations = asyncHandler(async (req, res) => {
     const conversations = await Conversation.find({
         participants: req.user._id
     })
         .populate("participants", "name email profileImage profilePicture role")
-        .populate("proposal", "gig status")
+        .populate({
+            path: "proposalId",
+            populate: { path: "gig", select: "title" }
+        })
         .sort({ updatedAt: -1 });
 
     return successResponse(res, {
-        conversations: conversations.map((conversation) => ({
-            ...conversation.toObject(),
-            ...buildConversationReadState(conversation)
-        }))
+        conversations: conversations.map((conversation) => enrichConversation(conversation, req.user._id))
     });
 });
 

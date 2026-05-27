@@ -9,10 +9,24 @@ const conversationSchema = new mongoose.Schema(
                 required: true
             }
         ],
-        proposal: {
+        proposalId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Proposal",
             required: true
+        },
+        gigId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Gig",
+            default: null
+        },
+        projectId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Project",
+            default: null
+        },
+        gigTitle: {
+            type: String,
+            default: ""
         },
         conversationType: {
             type: String,
@@ -72,6 +86,6 @@ const conversationSchema = new mongoose.Schema(
 conversationSchema.index({ participants: 1 });
 
 // Prevent duplicate conversations for the same proposal
-conversationSchema.index({ proposal: 1 }, { unique: true });
+conversationSchema.index({ proposalId: 1 }, { unique: true });
 
 module.exports = mongoose.model("Conversation", conversationSchema);
