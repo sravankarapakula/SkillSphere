@@ -121,7 +121,10 @@ const milestoneSlice = createSlice({
             if (milestone) {
                 const index = state.milestones.findIndex(m => m._id === milestone._id);
                 if (index !== -1) {
-                    state.milestones[index].status = milestone.status;
+                    state.milestones[index] = {
+                        ...state.milestones[index],
+                        ...milestone
+                    };
                 }
                 state.lastUpdated = Date.now();
             }
@@ -212,7 +215,10 @@ const milestoneSlice = createSlice({
                 if (milestone) {
                     const index = state.milestones.findIndex(m => m._id === milestone._id);
                     if (index !== -1) {
-                        state.milestones[index].status = milestone.status;
+                        state.milestones[index] = {
+                            ...state.milestones[index],
+                            ...milestone
+                        };
                     }
                 }
             })

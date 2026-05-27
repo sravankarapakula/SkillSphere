@@ -21,6 +21,21 @@ import MilestoneFormModal from "./MilestoneFormModal";
 import LoadingSpinner from "../shared/LoadingSpinner";
 import Button from "../shared/Button";
 
+const formatLateness = (ms) => {
+    if (!ms || ms <= 0) return "";
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    const remainingHours = hours % 24;
+    
+    if (days > 0) {
+        return `Late by: ${days} day${days > 1 ? 's' : ''} ${remainingHours} hour${remainingHours !== 1 ? 's' : ''}`;
+    }
+    return `Late by: ${hours} hour${hours > 1 ? 's' : ''}`;
+};
+
 export default function MilestonePanel({
     projectId,
     isClient,
@@ -53,6 +68,7 @@ export default function MilestonePanel({
     const totalCount = milestones.length;
     const pendingCount = milestones.filter((m) => m.status === "pending").length;
     const inProgressCount = milestones.filter((m) => m.status === "in_progress").length;
+    const overdueCount = milestones.filter((m) => m.status === "overdue").length;
     const submittedCount = milestones.filter((m) => m.status === "submitted").length;
     const approvedCount = milestones.filter((m) => m.status === "approved").length;
 
@@ -155,7 +171,7 @@ export default function MilestonePanel({
 
             {/* Summary Bar */}
             {totalCount > 0 && (
-                <div className="px-6 py-4 bg-surface-50/50 border-b border-surface-100 grid grid-cols-2 sm:grid-cols-5 gap-4">
+                <div className="px-6 py-4 bg-surface-50/50 border-b border-surface-100 grid grid-cols-3 sm:grid-cols-6 gap-4">
                     <div className="text-center sm:text-left">
                         <p className="text-xs text-surface-500 font-semibold uppercase tracking-wider">Total</p>
                         <p className="text-lg font-bold text-surface-900">{totalCount}</p>
@@ -167,6 +183,10 @@ export default function MilestonePanel({
                     <div className="text-center sm:text-left">
                         <p className="text-xs text-blue-600 font-semibold uppercase tracking-wider">In Progress</p>
                         <p className="text-lg font-bold text-blue-700">{inProgressCount}</p>
+                    </div>
+                    <div className="text-center sm:text-left">
+                        <p className="text-xs text-red-650 font-semibold uppercase tracking-wider">Overdue</p>
+                        <p className="text-lg font-bold text-red-700">{overdueCount}</p>
                     </div>
                     <div className="text-center sm:text-left">
                         <p className="text-xs text-violet-600 font-semibold uppercase tracking-wider">Submitted</p>
@@ -207,11 +227,28 @@ export default function MilestonePanel({
                             const isInProgress = milestone.status === "in_progress";
                             const isSubmitted = milestone.status === "submitted";
                             const isPending = milestone.status === "pending";
+                            const isOverdueState = milestone.status === "overdue" || milestone.isOverdue;
 
                             let cardClass = "border-surface-200 hover:border-surface-300";
-                            if (isApproved) cardClass = "bg-emerald-50/20 border-emerald-100";
+                            if (isOverdueState) cardClass = "bg-red-50/10 border-red-300 hover:border-red-400";
+                            else if (isApproved) cardClass = "bg-emerald-50/20 border-emerald-100";
                             else if (isInProgress) cardClass = "bg-blue-50/20 border-blue-100";
                             else if (isSubmitted) cardClass = "bg-violet-50/20 border-violet-100";
+
+                            let warningText = "";
+                            let warningType = "";
+                            if (isOverdueState) {
+                                warningType = "overdue";
+                                warningText = "Overdue";
+                            } else if (milestone.isUrgent) {
+                                warningType = "urgent";
+                                const hours = Math.ceil(milestone.timeRemaining / (60 * 60 * 1000));
+                                warningText = `Urgent: Due in ${hours}h`;
+                            } else if (milestone.isDueSoon) {
+                                warningType = "due_soon";
+                                const hours = Math.ceil(milestone.timeRemaining / (60 * 60 * 1000));
+                                warningText = `Due in ${hours}h`;
+                            }
 
                             return (
                                 <div
@@ -230,6 +267,15 @@ export default function MilestonePanel({
                                                 {milestone.title}
                                             </h4>
                                             <MilestoneStatusBadge status={milestone.status} />
+                                            {warningText && (
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border ${
+                                                    warningType === "overdue" ? "bg-red-100 text-red-800 border-red-200" :
+                                                    warningType === "urgent" ? "bg-red-50 text-red-700 border-red-150 animate-pulse" :
+                                                    "bg-orange-50 text-orange-700 border-orange-200"
+                                                }`}>
+                                                    {warningText}
+                                                </span>
+                                            )}
                                         </div>
 
                                         {milestone.description && (
@@ -249,12 +295,50 @@ export default function MilestonePanel({
                                                         month: "short",
                                                         day: "numeric",
                                                         year: "numeric"
+                                                    })}{" "}
+                                                    {new Date(milestone.dueDate).toLocaleTimeString(undefined, {
+                                                        hour: "2-digit",
+                                                        minute: "2-digit"
                                                     })}
                                                 </span>
                                             ) : (
                                                 <span className="flex items-center gap-1 text-surface-450">
                                                     <HiOutlineCalendarDays className="w-4 h-4" />
                                                     No deadline
+                                                </span>
+                                            )}
+                                            {milestone.submittedAt && (
+                                                <span className="text-violet-600 font-semibold flex items-center gap-1">
+                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                                    </svg>
+                                                    Submitted: {new Date(milestone.submittedAt).toLocaleDateString(undefined, {
+                                                        month: "short",
+                                                        day: "numeric",
+                                                        hour: "2-digit",
+                                                        minute: "2-digit"
+                                                    })}
+                                                </span>
+                                            )}
+                                            {milestone.lateness > 0 && (
+                                                <span className="text-red-650 font-semibold flex items-center gap-1">
+                                                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    {formatLateness(milestone.lateness)}
+                                                </span>
+                                            )}
+                                            {milestone.approvedAt && (
+                                                <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Approved: {new Date(milestone.approvedAt).toLocaleDateString(undefined, {
+                                                        month: "short",
+                                                        day: "numeric",
+                                                        hour: "2-digit",
+                                                        minute: "2-digit"
+                                                    })}
                                                 </span>
                                             )}
                                         </div>
@@ -299,7 +383,7 @@ export default function MilestonePanel({
                                         {/* Freelancer Actions */}
                                         {!isClient && isProjectActive && (
                                             <>
-                                                {isPending && (
+                                                {(isPending || milestone.status === "overdue") && (
                                                     <Button
                                                         variant="primary"
                                                         size="sm"
@@ -309,7 +393,7 @@ export default function MilestonePanel({
                                                         Start Work
                                                     </Button>
                                                 )}
-                                                {isInProgress && (
+                                                {(isInProgress || milestone.status === "overdue") && (
                                                     <Button
                                                         variant="primary"
                                                         size="sm"

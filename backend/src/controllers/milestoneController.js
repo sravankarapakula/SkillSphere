@@ -2,6 +2,84 @@ const Project = require("../models/Project.models");
 const Milestone = require("../models/Milestone");
 const asyncHandler = require("../utils/asynchandler");
 
+// Helper to enrich a milestone object with computed lateness and overdue flags
+const enrichMilestone = (m) => {
+    const milestoneObj = m.toObject ? m.toObject() : m;
+    const status = milestoneObj.status;
+    const dueDate = milestoneObj.dueDate;
+    const submittedAt = milestoneObj.submittedAt;
+
+    const isOverdue = status === "overdue" || (dueDate && new Date() > new Date(dueDate) && !["approved", "submitted"].includes(status));
+    
+    // lateness calculation in ms
+    let lateness = 0;
+    if (submittedAt && dueDate) {
+        const subDate = new Date(submittedAt);
+        const due = new Date(dueDate);
+        if (subDate > due) {
+            lateness = subDate.getTime() - due.getTime();
+        }
+    }
+
+    // timeRemaining calculation in ms
+    let timeRemaining = 0;
+    if (dueDate && status !== "approved" && status !== "submitted") {
+        const due = new Date(dueDate);
+        const now = new Date();
+        timeRemaining = due.getTime() - now.getTime();
+    }
+
+    // isDueSoon: <= 24 hours remaining, and status is active (pending or in_progress)
+    const isDueSoon = dueDate && timeRemaining > 0 && timeRemaining <= 24 * 60 * 60 * 1000 && ["pending", "in_progress"].includes(status);
+
+    // isUrgent: <= 6 hours remaining, and status is active (pending or in_progress)
+    const isUrgent = dueDate && timeRemaining > 0 && timeRemaining <= 6 * 60 * 60 * 1000 && ["pending", "in_progress"].includes(status);
+
+    return {
+        ...milestoneObj,
+        isOverdue,
+        isDueSoon,
+        isUrgent,
+        lateness,
+        timeRemaining
+    };
+};
+
+// Helper to sweep active projects' past-due milestones to overdue and notify users
+const checkAndUpdateOverdueMilestones = async (projectIds, req) => {
+    const ids = Array.isArray(projectIds) ? projectIds : [projectIds];
+    if (ids.length === 0) return [];
+
+    // Find all milestones that are past their due date and are pending/in_progress
+    const overdueMilestones = await Milestone.find({
+        project: { $in: ids },
+        status: { $in: ["pending", "in_progress"] },
+        dueDate: { $ne: null, $lt: new Date() }
+    }).populate("project");
+
+    if (overdueMilestones.length === 0) return [];
+
+    const io = req.app.get("io");
+
+    for (const milestone of overdueMilestones) {
+        const prevStatus = milestone.status;
+        milestone.status = "overdue";
+        await milestone.save();
+
+        if (io && prevStatus !== "overdue") {
+            const project = milestone.project;
+            io.to(`user:${project.client}`).emit("milestone_overdue", { milestoneId: milestone._id, projectId: project._id });
+            io.to(`user:${project.freelancer}`).emit("milestone_overdue", { milestoneId: milestone._id, projectId: project._id });
+
+            const enriched = enrichMilestone(milestone);
+            io.to(`user:${project.client}`).emit("milestone_status_changed", { milestone: enriched });
+            io.to(`user:${project.freelancer}`).emit("milestone_status_changed", { milestone: enriched });
+        }
+    }
+
+    return overdueMilestones;
+};
+
 // Helper to recalculate project progress percentage
 const recalculateProjectProgress = async (projectId, req) => {
     const project = await Project.findById(projectId);
@@ -82,16 +160,18 @@ const createMilestone = asyncHandler(async (req, res) => {
 
     await recalculateProjectProgress(projectId, req);
 
+    const enriched = enrichMilestone(milestone);
+
     const io = req.app.get("io");
     if (io) {
-        io.to(`user:${project.client}`).emit("milestone_created", { milestone });
-        io.to(`user:${project.freelancer}`).emit("milestone_created", { milestone });
+        io.to(`user:${project.client}`).emit("milestone_created", { milestone: enriched });
+        io.to(`user:${project.freelancer}`).emit("milestone_created", { milestone: enriched });
     }
 
     res.status(201).json({
         success: true,
         message: "Milestone created successfully",
-        data: { milestone }
+        data: { milestone: enriched }
     });
 });
 
@@ -117,16 +197,21 @@ const getProjectMilestones = asyncHandler(async (req, res) => {
         });
     }
 
+    // Run overdue sweep before returning milestones
+    await checkAndUpdateOverdueMilestones(projectId, req);
+
     const milestones = await Milestone.find({ project: projectId }).sort({ order: 1, createdAt: 1 });
 
     const totalBudget = project.agreedAmount;
     const allocatedBudget = milestones.reduce((sum, m) => sum + m.amount, 0);
     const remainingBudget = totalBudget - allocatedBudget;
 
+    const enrichedMilestones = milestones.map(m => enrichMilestone(m));
+
     res.status(200).json({
         success: true,
         data: {
-            milestones,
+            milestones: enrichedMilestones,
             budgetInfo: {
                 totalBudget,
                 allocatedBudget,
@@ -191,16 +276,18 @@ const updateMilestone = asyncHandler(async (req, res) => {
 
     await recalculateProjectProgress(project._id, req);
 
+    const enriched = enrichMilestone(milestone);
+
     const io = req.app.get("io");
     if (io) {
-        io.to(`user:${project.client}`).emit("milestone_updated", { milestone });
-        io.to(`user:${project.freelancer}`).emit("milestone_updated", { milestone });
+        io.to(`user:${project.client}`).emit("milestone_updated", { milestone: enriched });
+        io.to(`user:${project.freelancer}`).emit("milestone_updated", { milestone: enriched });
     }
 
     res.status(200).json({
         success: true,
         message: "Milestone updated successfully",
-        data: { milestone }
+        data: { milestone: enriched }
     });
 });
 
@@ -293,10 +380,10 @@ const updateMilestoneStatus = asyncHandler(async (req, res) => {
 
     // Check transition validity
     if (status === "in_progress") {
-        if (currentStatus !== "pending") {
+        if (currentStatus !== "pending" && currentStatus !== "overdue") {
             return res.status(400).json({
                 success: false,
-                message: "Only pending milestones can start work (move to in_progress)"
+                message: "Only pending or overdue milestones can start work (move to in_progress)"
             });
         }
         if (!isFreelancer) {
@@ -306,10 +393,10 @@ const updateMilestoneStatus = asyncHandler(async (req, res) => {
             });
         }
     } else if (status === "submitted") {
-        if (currentStatus !== "in_progress") {
+        if (currentStatus !== "in_progress" && currentStatus !== "overdue") {
             return res.status(400).json({
                 success: false,
-                message: "Only milestones in progress can be submitted"
+                message: "Only milestones in progress or overdue can be submitted"
             });
         }
         if (!isFreelancer) {
@@ -339,20 +426,28 @@ const updateMilestoneStatus = asyncHandler(async (req, res) => {
     }
 
     milestone.status = status;
+    if (status === "submitted") {
+        milestone.submittedAt = new Date();
+    } else if (status === "approved") {
+        milestone.approvedAt = new Date();
+        milestone.isLocked = true;
+    }
     await milestone.save();
 
     await recalculateProjectProgress(project._id, req);
 
+    const enriched = enrichMilestone(milestone);
+
     const io = req.app.get("io");
     if (io) {
-        io.to(`user:${project.client}`).emit("milestone_status_changed", { milestone });
-        io.to(`user:${project.freelancer}`).emit("milestone_status_changed", { milestone });
+        io.to(`user:${project.client}`).emit("milestone_status_changed", { milestone: enriched });
+        io.to(`user:${project.freelancer}`).emit("milestone_status_changed", { milestone: enriched });
     }
 
     res.status(200).json({
         success: true,
         message: `Milestone status updated to ${status}`,
-        data: { milestone }
+        data: { milestone: enriched }
     });
 });
 
@@ -361,5 +456,7 @@ module.exports = {
     getProjectMilestones,
     updateMilestone,
     deleteMilestone,
-    updateMilestoneStatus
+    updateMilestoneStatus,
+    checkAndUpdateOverdueMilestones,
+    enrichMilestone
 };

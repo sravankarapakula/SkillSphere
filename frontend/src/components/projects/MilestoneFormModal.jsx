@@ -14,6 +14,7 @@ export default function MilestoneFormModal({
     const [description, setDescription] = useState("");
     const [amount, setAmount] = useState("");
     const [dueDate, setDueDate] = useState("");
+    const [dueTime, setDueTime] = useState("");
     const [errors, setErrors] = useState({});
 
     // Calculate maximum allowable amount for this milestone
@@ -25,12 +26,30 @@ export default function MilestoneFormModal({
             setTitle(milestone.title || "");
             setDescription(milestone.description || "");
             setAmount(milestone.amount?.toString() || "");
-            setDueDate(milestone.dueDate ? new Date(milestone.dueDate).toISOString().split("T")[0] : "");
+            
+            if (milestone.dueDate) {
+                const dateObj = new Date(milestone.dueDate);
+                
+                // Format YYYY-MM-DD in local time
+                const year = dateObj.getFullYear();
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                setDueDate(`${year}-${month}-${day}`);
+                
+                // Format HH:MM in local time
+                const hours = String(dateObj.getHours()).padStart(2, '0');
+                const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                setDueTime(`${hours}:${minutes}`);
+            } else {
+                setDueDate("");
+                setDueTime("");
+            }
         } else {
             setTitle("");
             setDescription("");
             setAmount("");
             setDueDate("");
+            setDueTime("");
         }
         setErrors({});
     }, [milestone, isOpen]);
@@ -66,11 +85,23 @@ export default function MilestoneFormModal({
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!validate()) return;
+
+        let finalDueDate = null;
+        if (dueDate) {
+            const timePart = dueTime ? dueTime : "23:59";
+            const [year, month, day] = dueDate.split("-").map(Number);
+            const [hours, minutes] = timePart.split(":").map(Number);
+            
+            // Create the date in local timezone
+            const localDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+            finalDueDate = localDate.toISOString();
+        }
+
         onSubmit({
             title: title.trim(),
             description: description.trim(),
             amount: parseFloat(amount),
-            dueDate: dueDate ? new Date(dueDate).toISOString() : null
+            dueDate: finalDueDate
         });
     };
 
@@ -155,18 +186,32 @@ export default function MilestoneFormModal({
                             {errors.amount && <p className="text-xs text-danger mt-1 font-medium">{errors.amount}</p>}
                         </div>
 
-                        {/* Due Date */}
-                        <div>
-                            <label className="block text-sm font-semibold text-surface-700 mb-1.5" htmlFor="milestone-due-date">
-                                Due Date
-                            </label>
-                            <input
-                                type="date"
-                                id="milestone-due-date"
-                                value={dueDate}
-                                onChange={(e) => setDueDate(e.target.value)}
-                                className="w-full px-4 py-2.5 bg-surface-55 border border-surface-200 rounded-xl text-surface-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-all"
-                            />
+                        {/* Due Date & Time */}
+                        <div className="grid grid-cols-2 gap-2">
+                            <div>
+                                <label className="block text-sm font-semibold text-surface-700 mb-1.5" htmlFor="milestone-due-date">
+                                    Due Date
+                                </label>
+                                <input
+                                    type="date"
+                                    id="milestone-due-date"
+                                    value={dueDate}
+                                    onChange={(e) => setDueDate(e.target.value)}
+                                    className="w-full px-2 py-2.5 bg-surface-55 border border-surface-200 rounded-xl text-surface-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-all text-xs"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-surface-700 mb-1.5" htmlFor="milestone-due-time">
+                                    Due Time
+                                </label>
+                                <input
+                                    type="time"
+                                    id="milestone-due-time"
+                                    value={dueTime}
+                                    onChange={(e) => setDueTime(e.target.value)}
+                                    className="w-full px-2 py-2.5 bg-surface-55 border border-surface-200 rounded-xl text-surface-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-all text-xs"
+                                />
+                            </div>
                         </div>
                     </div>
 

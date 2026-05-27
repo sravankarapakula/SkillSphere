@@ -9,7 +9,10 @@ import {
     HiOutlineFolderOpen,
     HiOutlineMagnifyingGlass,
     HiOutlinePlusCircle,
-    HiOutlineQueueList
+    HiOutlineQueueList,
+    HiOutlineCalendarDays,
+    HiOutlineClock,
+    HiOutlineDocumentCheck
 } from "react-icons/hi2";
 import { useClientDashboard } from "../../hooks/useDashboardStats";
 
@@ -59,6 +62,24 @@ export default function ClientDashboard() {
             value: stats?.activeProjects || 0,
             icon: HiOutlineBriefcase,
             color: "text-cyan-600 bg-cyan-50"
+        },
+        {
+            label: "Milestones Due Today",
+            value: stats?.milestonesDueToday || 0,
+            icon: HiOutlineCalendarDays,
+            color: "text-amber-650 bg-amber-50"
+        },
+        {
+            label: "Overdue Milestones",
+            value: stats?.overdueMilestones || 0,
+            icon: HiOutlineClock,
+            color: "text-red-650 bg-red-50"
+        },
+        {
+            label: "Pending Approvals",
+            value: stats?.pendingApprovals || 0,
+            icon: HiOutlineDocumentCheck,
+            color: "text-violet-650 bg-violet-50"
         }
     ];
 

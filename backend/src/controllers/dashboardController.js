@@ -2,6 +2,8 @@ const Gig = require("../models/Gig.models");
 const Proposal = require("../models/Proposal.models");
 const Project = require("../models/Project.models");
 const User = require("../models/user.models");
+const Milestone = require("../models/Milestone");
+const { checkAndUpdateOverdueMilestones } = require("./milestoneController");
 const asyncHandler = require("../utils/asynchandler");
 
 const getClientDashboard = asyncHandler(async (req, res) => {
@@ -28,6 +30,43 @@ const getClientDashboard = asyncHandler(async (req, res) => {
         Project.countDocuments({ client: req.user._id, status: "completed" })
     ]);
 
+    // Fetch active projects to run overdue sweep
+    const activeProjectsList = await Project.find({
+        client: req.user._id,
+        status: { $in: ["active", "in_progress", "revision"] }
+    }).select("_id");
+    const activeProjectIds = activeProjectsList.map(p => p._id);
+
+    // Run sweep
+    if (activeProjectIds.length > 0) {
+        await checkAndUpdateOverdueMilestones(activeProjectIds, req);
+    }
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const [
+        milestonesDueToday,
+        overdueMilestones,
+        pendingApprovals
+    ] = await Promise.all([
+        Milestone.countDocuments({
+            project: { $in: activeProjectIds },
+            status: { $in: ["pending", "in_progress", "overdue"] },
+            dueDate: { $gte: startOfToday, $lte: endOfToday }
+        }),
+        Milestone.countDocuments({
+            project: { $in: activeProjectIds },
+            status: "overdue"
+        }),
+        Milestone.countDocuments({
+            project: { $in: activeProjectIds },
+            status: "submitted"
+        })
+    ]);
+
     res.status(200).json({
         success: true,
         data: {
@@ -38,7 +77,10 @@ const getClientDashboard = asyncHandler(async (req, res) => {
             acceptedProposals,
             pendingProposals,
             activeProjects,
-            completedProjects
+            completedProjects,
+            milestonesDueToday,
+            overdueMilestones,
+            pendingApprovals
         }
     });
 });
@@ -60,6 +102,42 @@ const getFreelancerDashboard = asyncHandler(async (req, res) => {
         Project.countDocuments({ freelancer: req.user._id, status: "completed" })
     ]);
 
+    // Fetch active projects to run overdue sweep
+    const activeProjectsList = await Project.find({
+        freelancer: req.user._id,
+        status: { $in: ["active", "in_progress", "revision"] }
+    }).select("_id");
+    const activeProjectIds = activeProjectsList.map(p => p._id);
+
+    // Run sweep
+    if (activeProjectIds.length > 0) {
+        await checkAndUpdateOverdueMilestones(activeProjectIds, req);
+    }
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const [
+        upcomingDeadlines,
+        overdueTasks,
+        awaitingApproval
+    ] = await Promise.all([
+        Milestone.countDocuments({
+            project: { $in: activeProjectIds },
+            status: { $in: ["pending", "in_progress", "overdue"] },
+            dueDate: { $gte: startOfToday, $lte: sevenDaysFromNow }
+        }),
+        Milestone.countDocuments({
+            project: { $in: activeProjectIds },
+            status: "overdue"
+        }),
+        Milestone.countDocuments({
+            project: { $in: activeProjectIds },
+            status: "submitted"
+        })
+    ]);
+
     res.status(200).json({
         success: true,
         data: {
@@ -69,7 +147,10 @@ const getFreelancerDashboard = asyncHandler(async (req, res) => {
             pendingProposals,
             activeProjects,
             completedProjects,
-            gigsApplied: totalProposalsSent
+            gigsApplied: totalProposalsSent,
+            upcomingDeadlines,
+            overdueTasks,
+            awaitingApproval
         }
     });
 });

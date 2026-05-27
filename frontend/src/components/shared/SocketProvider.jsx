@@ -128,6 +128,14 @@ export default function SocketProvider({ children }) {
             dispatch(applyMilestoneDeleted(payload));
         };
 
+        const handleMilestoneOverdue = (payload) => {
+            if (payload && payload.milestoneId) {
+                dispatch(applyMilestoneStatusChanged({
+                    milestone: { _id: payload.milestoneId, status: "overdue" }
+                }));
+            }
+        };
+
         const handleMilestoneStatusChanged = (payload) => {
             dispatch(applyMilestoneStatusChanged(payload));
         };
@@ -167,6 +175,7 @@ export default function SocketProvider({ children }) {
         socket.on("milestone_created", handleMilestoneCreated);
         socket.on("milestone_updated", handleMilestoneUpdated);
         socket.on("milestone_deleted", handleMilestoneDeleted);
+        socket.on("milestone_overdue", handleMilestoneOverdue);
         socket.on("milestone_status_changed", handleMilestoneStatusChanged);
         socket.on("project_progress_updated", handleProgressUpdated);
 
@@ -198,6 +207,7 @@ export default function SocketProvider({ children }) {
             socket.off("milestone_created", handleMilestoneCreated);
             socket.off("milestone_updated", handleMilestoneUpdated);
             socket.off("milestone_deleted", handleMilestoneDeleted);
+            socket.off("milestone_overdue", handleMilestoneOverdue);
             socket.off("milestone_status_changed", handleMilestoneStatusChanged);
             socket.off("project_progress_updated", handleProgressUpdated);
             disconnectSocket();

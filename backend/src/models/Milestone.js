@@ -29,8 +29,20 @@ const milestoneSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ["pending", "in_progress", "submitted", "approved"],
+            enum: ["pending", "in_progress", "submitted", "approved", "overdue"],
             default: "pending"
+        },
+        submittedAt: {
+            type: Date,
+            default: null
+        },
+        approvedAt: {
+            type: Date,
+            default: null
+        },
+        isLocked: {
+            type: Boolean,
+            default: false
         },
         order: {
             type: Number,
