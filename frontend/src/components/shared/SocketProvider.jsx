@@ -17,6 +17,12 @@ import {
     applySocketProjectUpdate,
     applySocketProjectCreated
 } from "../../redux/slices/projectSlice";
+import {
+    applyMilestoneCreated,
+    applyMilestoneUpdated,
+    applyMilestoneDeleted,
+    applyMilestoneStatusChanged
+} from "../../redux/slices/milestoneSlice";
 
 export default function SocketProvider({ children }) {
     const { token, user } = useSelector((state) => state.auth);
@@ -110,6 +116,28 @@ export default function SocketProvider({ children }) {
             dispatch(applySocketProjectUpdate(payload));
         };
 
+        const handleMilestoneCreated = (payload) => {
+            dispatch(applyMilestoneCreated(payload));
+        };
+
+        const handleMilestoneUpdated = (payload) => {
+            dispatch(applyMilestoneUpdated(payload));
+        };
+
+        const handleMilestoneDeleted = (payload) => {
+            dispatch(applyMilestoneDeleted(payload));
+        };
+
+        const handleMilestoneStatusChanged = (payload) => {
+            dispatch(applyMilestoneStatusChanged(payload));
+        };
+
+        const handleProgressUpdated = (payload) => {
+            dispatch(applySocketProjectUpdate({
+                project: { _id: payload.projectId, progressPercentage: payload.progressPercentage }
+            }));
+        };
+
         socket.on("connect", handleConnect);
         socket.on("disconnect", handleDisconnect);
         socket.on("online-users", handleOnlineUsers);
@@ -136,6 +164,11 @@ export default function SocketProvider({ children }) {
         socket.on("user-offline", handleUserOffline);
         socket.on("project_created", handleProjectCreated);
         socket.on("project_updated", handleProjectUpdated);
+        socket.on("milestone_created", handleMilestoneCreated);
+        socket.on("milestone_updated", handleMilestoneUpdated);
+        socket.on("milestone_deleted", handleMilestoneDeleted);
+        socket.on("milestone_status_changed", handleMilestoneStatusChanged);
+        socket.on("project_progress_updated", handleProgressUpdated);
 
         if (socket.connected) {
             handleConnect();
@@ -162,6 +195,11 @@ export default function SocketProvider({ children }) {
             socket.off("user-offline", handleUserOffline);
             socket.off("project_created", handleProjectCreated);
             socket.off("project_updated", handleProjectUpdated);
+            socket.off("milestone_created", handleMilestoneCreated);
+            socket.off("milestone_updated", handleMilestoneUpdated);
+            socket.off("milestone_deleted", handleMilestoneDeleted);
+            socket.off("milestone_status_changed", handleMilestoneStatusChanged);
+            socket.off("project_progress_updated", handleProgressUpdated);
             disconnectSocket();
             dispatch(setSocketConnected(false));
         };

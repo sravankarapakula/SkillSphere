@@ -13,6 +13,7 @@ const proposalRoutes = require("./routes/proposalRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const projectRoutes = require("./routes/projectRoutes");
+const milestoneRoutes = require("./routes/milestoneRoutes");
 const errorHandler = require("./middleware/errorMiddleware");
 
 // CORS configuration — restrict origins in production
@@ -60,6 +61,7 @@ app.use("/api/gigs", gigRoutes);
 app.use("/api/proposals", proposalRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/projects", projectRoutes);
+app.use("/api/milestones", milestoneRoutes);
 app.use("/api", messageRoutes);
 
 // Global error handler (must be last)

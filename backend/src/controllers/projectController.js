@@ -98,14 +98,10 @@ const updateProject = asyncHandler(async (req, res) => {
         });
     }
 
-    const { status, progressPercentage, milestones, expectedCompletionDate } = req.body;
+    const { status, expectedCompletionDate } = req.body;
 
     // Apply updates based on roles
     if (isFreelancer) {
-        // Freelancer updates progress
-        if (progressPercentage !== undefined) {
-            project.progressPercentage = Math.min(100, Math.max(0, Number(progressPercentage)));
-        }
         // Freelancers can request revision or transition to in_progress
         if (status && ["in_progress", "revision"].includes(status)) {
             project.status = status;
@@ -113,17 +109,6 @@ const updateProject = asyncHandler(async (req, res) => {
     }
 
     if (isClient) {
-        // Client can update milestones, status, deadlines
-        if (milestones !== undefined && Array.isArray(milestones)) {
-            project.milestones = milestones;
-            // Recalculate progress if client checked off milestones
-            const completedCount = milestones.filter(m => m.status === "completed").length;
-            if (milestones.length > 0) {
-                // Approximate progress based on milestones
-                project.progressPercentage = Math.round((completedCount / milestones.length) * 100);
-            }
-        }
-
         if (status && ["active", "in_progress", "revision", "completed", "cancelled", "paused"].includes(status)) {
             project.status = status;
             if (status === "completed") {
@@ -136,10 +121,6 @@ const updateProject = asyncHandler(async (req, res) => {
 
         if (expectedCompletionDate !== undefined) {
             project.expectedCompletionDate = expectedCompletionDate;
-        }
-
-        if (progressPercentage !== undefined) {
-            project.progressPercentage = Math.min(100, Math.max(0, Number(progressPercentage)));
         }
     }
 

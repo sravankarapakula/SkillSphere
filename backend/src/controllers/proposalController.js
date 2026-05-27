@@ -277,24 +277,7 @@ const acceptProposal = asyncHandler(async (req, res) => {
         estimatedDays: expectedDays,
         status: "active",
         progressPercentage: 0,
-        expectedCompletionDate: new Date(Date.now() + expectedDays * 24 * 60 * 60 * 1000),
-        milestones: [
-            {
-                title: "Project Kickoff",
-                amount: Math.round(proposal.bidAmount * 0.1),
-                status: "pending"
-            },
-            {
-                title: "Midpoint Progress",
-                amount: Math.round(proposal.bidAmount * 0.4),
-                status: "pending"
-            },
-            {
-                title: "Final Handover & Delivery",
-                amount: Math.round(proposal.bidAmount * 0.5),
-                status: "pending"
-            }
-        ]
+        expectedCompletionDate: new Date(Date.now() + expectedDays * 24 * 60 * 60 * 1000)
     });
 
     proposal.status = "hired";

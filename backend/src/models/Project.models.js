@@ -1,19 +1,5 @@
 const mongoose = require("mongoose");
 
-const milestoneSchema = new mongoose.Schema(
-    {
-        title: { type: String, required: true },
-        amount: { type: Number, default: 0 },
-        status: {
-            type: String,
-            enum: ["pending", "in_progress", "completed"],
-            default: "pending"
-        },
-        completedAt: { type: Date, default: null }
-    },
-    { _id: true }
-);
-
 const projectSchema = new mongoose.Schema(
     {
         gig: {
@@ -62,10 +48,6 @@ const projectSchema = new mongoose.Schema(
         expectedCompletionDate: {
             type: Date,
             default: null
-        },
-        milestones: {
-            type: [milestoneSchema],
-            default: []
         },
         startedAt: {
             type: Date,
