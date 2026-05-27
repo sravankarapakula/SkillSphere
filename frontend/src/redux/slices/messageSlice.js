@@ -91,6 +91,8 @@ const applyConversationPatch = (state, payload, currentUserId) => {
         if (payload.lastReadMessage) conversation.lastReadMessage = normalizeIdMap(payload.lastReadMessage);
         if (payload.lastVisibleMessage) conversation.lastVisibleMessage = normalizeIdMap(payload.lastVisibleMessage);
         if (payload.unreadAnchorMessage) conversation.unreadAnchorMessage = normalizeIdMap(payload.unreadAnchorMessage);
+        if (payload.projectId !== undefined) conversation.projectId = payload.projectId;
+        if (payload.conversationType !== undefined) conversation.conversationType = payload.conversationType;
         if (payload.unreadAnchorMessageId !== undefined && currentUserId) {
             conversation.unreadAnchorMessage = normalizeIdMap(conversation.unreadAnchorMessage);
             if (payload.unreadAnchorMessageId) {

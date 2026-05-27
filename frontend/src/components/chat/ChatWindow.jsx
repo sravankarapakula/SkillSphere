@@ -276,6 +276,11 @@ export default function ChatWindow({ conversation, currentUser, onlineUsers, onB
                         <h3 className="text-sm font-bold text-surface-800 truncate">
                             {otherParticipant?.name || "Deleted User"}
                         </h3>
+                        {conversation.gigTitle && (
+                            <p className="text-xs font-semibold text-primary-600 truncate mb-0.5" title={conversation.gigTitle}>
+                                {conversation.gigTitle}
+                            </p>
+                        )}
                         <p className="text-[10px] text-surface-400 font-medium">
                             {isOnline ? "Online" : "Offline"}
                         </p>

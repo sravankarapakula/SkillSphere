@@ -119,14 +119,14 @@ export default function GigProposalsPage() {
                         key={proposal._id}
                         proposal={proposal}
                         actions={
-                            (proposal.status === "pending" || proposal.status === "discussion") ? (
+                            (["submitted", "shortlisted", "pending", "discussion"].includes(proposal.status)) ? (
                                 <div className="flex gap-2 flex-wrap items-center">
                                     <Button
                                         size="sm"
                                         isLoading={workingId === proposal._id}
                                         onClick={() => setStatus(proposal._id, "accepted")}
                                     >
-                                        Accept
+                                        Accept Proposal
                                     </Button>
                                     <Button
                                         size="sm"
@@ -134,7 +134,7 @@ export default function GigProposalsPage() {
                                         disabled={workingId === proposal._id}
                                         onClick={() => setStatus(proposal._id, "rejected")}
                                     >
-                                        Reject
+                                        Reject Proposal
                                     </Button>
                                     <Button
                                         size="sm"
@@ -142,17 +142,17 @@ export default function GigProposalsPage() {
                                         disabled={workingId === proposal._id}
                                         onClick={() => handleOpenDiscussion(proposal._id)}
                                     >
-                                        Open Discussion
+                                        Negotiate
                                     </Button>
                                 </div>
-                            ) : proposal.status === "accepted" ? (
+                            ) : ["accepted", "hired"].includes(proposal.status) ? (
                                 <Button
                                     size="sm"
                                     variant="outline"
                                     disabled={workingId === proposal._id}
                                     onClick={() => handleOpenDiscussion(proposal._id)}
                                 >
-                                    Open Chat
+                                    Negotiate
                                 </Button>
                             ) : null
                         }

@@ -115,6 +115,12 @@ export default function ChatSidebar({ conversations, isLoading, currentUser, onl
                                 </span>
                             </div>
 
+                            {conv.gigTitle && (
+                                <p className="text-xs text-primary-600 font-medium truncate mb-1" title={conv.gigTitle}>
+                                    {conv.gigTitle}
+                                </p>
+                            )}
+
                             <div className="flex items-center justify-between gap-2">
                                 <p
                                     className={`text-xs truncate flex-1 ${
