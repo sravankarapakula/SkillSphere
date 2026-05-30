@@ -9,7 +9,7 @@ const enrichMilestone = (m) => {
     const dueDate = milestoneObj.dueDate;
     const submittedAt = milestoneObj.submittedAt;
 
-    const isOverdue = status === "overdue" || (dueDate && new Date() > new Date(dueDate) && !["approved", "submitted"].includes(status));
+    const isOverdue = status === "overdue" || (dueDate && new Date() > new Date(dueDate) && !["approved", "submitted", "rejected"].includes(status));
     
     // lateness calculation in ms
     let lateness = 0;
@@ -37,6 +37,7 @@ const enrichMilestone = (m) => {
 
     return {
         ...milestoneObj,
+        priority: milestoneObj.priority || "medium",
         isOverdue,
         isDueSoon,
         isUrgent,
@@ -110,7 +111,7 @@ const recalculateProjectProgress = async (projectId, req) => {
 // @route   POST /api/milestones
 // @access  Private (Client Only)
 const createMilestone = asyncHandler(async (req, res) => {
-    const { projectId, title, description, amount, dueDate } = req.body;
+    const { projectId, title, description, amount, dueDate, priority } = req.body;
 
     const project = await Project.findById(projectId);
     if (!project) {
@@ -154,6 +155,7 @@ const createMilestone = asyncHandler(async (req, res) => {
         description,
         amount: Number(amount),
         dueDate: dueDate ? new Date(dueDate) : null,
+        priority: priority || "medium",
         order,
         createdBy: req.user._id
     });
@@ -226,7 +228,7 @@ const getProjectMilestones = asyncHandler(async (req, res) => {
 // @access  Private (Client Only)
 const updateMilestone = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { title, description, amount, dueDate } = req.body;
+    const { title, description, amount, dueDate, priority } = req.body;
 
     const milestone = await Milestone.findById(id).populate("project");
     if (!milestone) {
@@ -271,6 +273,7 @@ const updateMilestone = asyncHandler(async (req, res) => {
     if (title !== undefined) milestone.title = title;
     if (description !== undefined) milestone.description = description;
     if (dueDate !== undefined) milestone.dueDate = dueDate ? new Date(dueDate) : null;
+    if (priority !== undefined) milestone.priority = priority;
 
     await milestone.save();
 
@@ -380,10 +383,10 @@ const updateMilestoneStatus = asyncHandler(async (req, res) => {
 
     // Check transition validity
     if (status === "in_progress") {
-        if (currentStatus !== "pending" && currentStatus !== "overdue") {
+        if (currentStatus !== "pending" && currentStatus !== "overdue" && currentStatus !== "rejected") {
             return res.status(400).json({
                 success: false,
-                message: "Only pending or overdue milestones can start work (move to in_progress)"
+                message: "Only pending, overdue, or rejected milestones can start work (move to in_progress)"
             });
         }
         if (!isFreelancer) {
@@ -393,10 +396,10 @@ const updateMilestoneStatus = asyncHandler(async (req, res) => {
             });
         }
     } else if (status === "submitted") {
-        if (currentStatus !== "in_progress" && currentStatus !== "overdue") {
+        if (currentStatus !== "in_progress" && currentStatus !== "overdue" && currentStatus !== "rejected") {
             return res.status(400).json({
                 success: false,
-                message: "Only milestones in progress or overdue can be submitted"
+                message: "Only milestones in progress, overdue, or rejected can be submitted"
             });
         }
         if (!isFreelancer) {
@@ -451,6 +454,253 @@ const updateMilestoneStatus = asyncHandler(async (req, res) => {
     });
 });
 
+// @desc    Get upcoming milestones/tasks for user
+// @route   GET /api/tasks/upcoming
+// @access  Private (Freelancer/Client)
+const getUpcomingTasks = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
+
+    // Get all active (non-cancelled, non-completed) projects for user based on role
+    const isClient = req.user.role === "client";
+    const projectQuery = isClient ? { client: userId } : { freelancer: userId };
+    projectQuery.status = { $nin: ["completed", "cancelled"] };
+
+    const activeProjectsList = await Project.find(projectQuery).select("_id title status client freelancer");
+    const activeProjectIds = activeProjectsList.map(p => p._id);
+
+    // Run overdue sweep first
+    if (activeProjectIds.length > 0) {
+        await checkAndUpdateOverdueMilestones(activeProjectIds, req);
+    }
+
+    const {
+        status,
+        priority,
+        project: projectId,
+        search,
+        dueDate: timeline,
+        sortBy,
+        sortOrder = "asc",
+        page = 1,
+        limit = 10,
+        grouped
+    } = req.query;
+
+    const queryConditions = [
+        { project: { $in: activeProjectIds } }
+    ];
+
+    // Status filter
+    if (status && status !== "all") {
+        queryConditions.push({ status });
+    } else {
+        // Exclude approved by default for "upcoming tasks", unless specifically asked
+        queryConditions.push({ status: { $ne: "approved" } });
+    }
+
+    // Priority filter (with migration fallback)
+    if (priority && priority !== "all") {
+        if (priority === "medium") {
+            queryConditions.push({
+                $or: [
+                    { priority: "medium" },
+                    { priority: { $exists: false } },
+                    { priority: null }
+                ]
+            });
+        } else {
+            queryConditions.push({ priority });
+        }
+    }
+
+    // Project filter
+    if (projectId && projectId !== "all") {
+        queryConditions.push({ project: projectId });
+    }
+
+    // Search filter (partial match on title and description)
+    if (search && search.trim() !== "") {
+        const searchRegex = new RegExp(search.trim(), "i");
+        queryConditions.push({
+            $or: [
+                { title: searchRegex },
+                { description: searchRegex }
+            ]
+        });
+    }
+
+    // Date / timeline filter
+    if (timeline && timeline !== "all") {
+        if (timeline === "overdue") {
+            queryConditions.push({
+                $or: [
+                    { status: "overdue" },
+                    { dueDate: { $lt: new Date() }, status: { $in: ["pending", "in_progress"] } }
+                ]
+            });
+        } else if (timeline === "due-today") {
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            const endOfToday = new Date();
+            endOfToday.setHours(23, 59, 59, 999);
+            queryConditions.push({
+                dueDate: { $gte: startOfToday, $lte: endOfToday }
+            });
+        } else if (timeline === "this-week") {
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+            queryConditions.push({
+                dueDate: { $gte: startOfToday, $lte: sevenDaysFromNow }
+            });
+        }
+    }
+
+    const query = { $and: queryConditions };
+
+    // Get total matching count for pagination metadata
+    const totalCount = await Milestone.countDocuments(query);
+
+    // Sorting query construction
+    let sortQuery = {};
+    const multiplier = sortOrder === "desc" ? -1 : 1;
+    if (sortBy === "newest") {
+        sortQuery = { createdAt: -1 };
+    } else if (sortBy === "oldest") {
+        sortQuery = { createdAt: 1 };
+    } else if (sortBy === "dueDate") {
+        sortQuery = { dueDate: multiplier };
+    } else if (sortBy === "budget" || sortBy === "amount") {
+        sortQuery = { amount: multiplier };
+    } else if (sortBy === "title" || sortBy === "alphabetical") {
+        sortQuery = { title: multiplier };
+    } else if (sortBy === "status") {
+        sortQuery = { status: multiplier };
+    } else if (sortBy === "priority") {
+        sortQuery = { priority: multiplier };
+    } else {
+        // Default sort: status (overdue first) and then nearest deadline (dueDate asc), then budget (amount desc)
+        sortQuery = { status: 1, dueDate: 1, amount: -1 };
+    }
+
+    // Pagination calculations
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 10;
+    const skipNum = (pageNum - 1) * limitNum;
+    const totalPages = Math.ceil(totalCount / limitNum);
+
+    const milestones = await Milestone.find(query)
+        .populate("project", "title status client freelancer")
+        .sort(sortQuery)
+        .skip(skipNum)
+        .limit(limitNum);
+
+    const tasks = milestones.map(m => {
+        const enrichedObj = enrichMilestone(m);
+        return {
+            taskId: m._id,
+            title: m.title,
+            description: m.description || "",
+            status: m.status,
+            priority: enrichedObj.priority || "medium",
+            assignee: m.project.freelancer,
+            project: {
+                _id: m.project._id,
+                title: m.project.title,
+                status: m.project.status
+            },
+            dueDate: m.dueDate,
+            createdAt: m.createdAt,
+            updatedAt: m.updatedAt,
+            // Keep backward compatibility fields
+            milestoneId: m._id,
+            projectId: m.project._id,
+            projectTitle: m.project.title,
+            projectStatus: m.project.status,
+            milestoneTitle: m.title,
+            milestoneAmount: m.amount,
+            timeRemaining: enrichedObj.timeRemaining,
+            isOverdue: enrichedObj.isOverdue,
+            isUrgent: enrichedObj.isUrgent,
+            isDueSoon: enrichedObj.isDueSoon
+        };
+    });
+
+    // Local bucket categorization helper
+    const getBucket = (task) => {
+        if (task.isOverdue) return "OVERDUE";
+        if (!task.dueDate) return "LATER";
+
+        const due = new Date(task.dueDate);
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+
+        const tomorrowMidnight = new Date(todayMidnight.getTime() + 24 * 60 * 60 * 1000);
+        const dayAfterTomorrowMidnight = new Date(todayMidnight.getTime() + 2 * 24 * 60 * 60 * 1000);
+        const sevenDaysMidnight = new Date(todayMidnight.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+        if (due < todayMidnight) {
+            return "OVERDUE";
+        }
+        if (due >= todayMidnight && due < tomorrowMidnight) {
+            return "DUE TODAY";
+        }
+        if (due >= tomorrowMidnight && due < dayAfterTomorrowMidnight) {
+            return "DUE TOMORROW";
+        }
+        if (due >= dayAfterTomorrowMidnight && due < sevenDaysMidnight) {
+            return "THIS WEEK";
+        }
+        return "LATER";
+    };
+
+    if (grouped === "true") {
+        const groups = {
+            OVERDUE: [],
+            DUE_TODAY: [],
+            DUE_TOMORROW: [],
+            THIS_WEEK: [],
+            LATER: []
+        };
+
+        tasks.forEach(t => {
+            const bucket = getBucket(t);
+            const key = bucket.replace(" ", "_");
+            if (groups[key]) {
+                groups[key].push(t);
+            } else {
+                groups.LATER.push(t);
+            }
+        });
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                grouped: groups,
+                pagination: {
+                    totalCount,
+                    totalPages,
+                    page: pageNum,
+                    limit: limitNum
+                }
+            }
+        });
+    }
+
+    res.status(200).json({
+        success: true,
+        data: {
+            tasks,
+            pagination: {
+                totalCount,
+                totalPages,
+                page: pageNum,
+                limit: limitNum
+            }
+        }
+    });
+});
+
 module.exports = {
     createMilestone,
     getProjectMilestones,
@@ -458,5 +708,6 @@ module.exports = {
     deleteMilestone,
     updateMilestoneStatus,
     checkAndUpdateOverdueMilestones,
-    enrichMilestone
+    enrichMilestone,
+    getUpcomingTasks
 };

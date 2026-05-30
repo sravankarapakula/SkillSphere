@@ -1,6 +1,8 @@
 const Project = require("../models/Project.models");
 const Conversation = require("../models/Conversation");
 const Gig = require("../models/Gig.models");
+const Milestone = require("../models/Milestone");
+const { checkAndUpdateOverdueMilestones } = require("./milestoneController");
 const asyncHandler = require("../utils/asynchandler");
 const { enrichConversation } = require("../services/chatReadService");
 
@@ -35,9 +37,26 @@ const getUserProjects = asyncHandler(async (req, res) => {
     .populate("freelancer", "name email profileImage")
     .sort({ updatedAt: -1 });
 
+    const projectIds = projects.map(p => p._id);
+    if (projectIds.length > 0) {
+        await checkAndUpdateOverdueMilestones(projectIds, req);
+    }
+
+    const projectsWithOverdue = await Milestone.distinct("project", {
+        project: { $in: projectIds },
+        status: "overdue"
+    });
+    const overdueSet = new Set(projectsWithOverdue.map(id => id.toString()));
+
+    const enrichedProjects = projects.map(project => {
+        const projObj = project.toObject();
+        projObj.isAtRisk = overdueSet.has(projObj._id.toString());
+        return projObj;
+    });
+
     res.status(200).json({
         success: true,
-        data: { projects }
+        data: { projects: enrichedProjects }
     });
 });
 

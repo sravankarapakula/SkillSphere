@@ -32,6 +32,27 @@ const portfolioStorage = new CloudinaryStorage({
     }
 });
 
+// Deliverable file upload — mixed types, max 25MB per file
+const deliverableStorage = new CloudinaryStorage({
+    cloudinary,
+    params: async (req, file) => {
+        const isImage = file.mimetype.startsWith("image/");
+        return {
+            folder: "skillsphere/deliverables",
+            resource_type: isImage ? "image" : "raw",
+            allowed_formats: [
+                "jpg", "jpeg", "png", "webp", "gif",
+                "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+                "zip", "rar", "7z", "tar", "gz",
+                "txt", "csv", "json", "xml", "md",
+                "js", "ts", "py", "java", "cpp", "c", "html", "css",
+                "svg", "fig", "sketch", "psd", "ai",
+                "mp4", "mov", "avi"
+            ]
+        };
+    }
+});
+
 // File filter for images
 const imageFilter = (req, file, cb) => {
     if (file.mimetype.startsWith("image/")) {
@@ -47,6 +68,29 @@ const pdfFilter = (req, file, cb) => {
         cb(null, true);
     } else {
         cb(new Error("Only PDF files are allowed"), false);
+    }
+};
+
+// File filter for deliverable files — allow common document, image, archive, and code types
+const ALLOWED_DELIVERABLE_MIMES = new Set([
+    "image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml",
+    "application/pdf",
+    "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/zip", "application/x-rar-compressed", "application/x-7z-compressed",
+    "application/gzip", "application/x-tar",
+    "text/plain", "text/csv", "text/html", "text/css", "text/javascript", "text/markdown",
+    "application/json", "application/xml",
+    "video/mp4", "video/quicktime", "video/x-msvideo",
+    "application/octet-stream"
+]);
+
+const deliverableFilter = (req, file, cb) => {
+    if (ALLOWED_DELIVERABLE_MIMES.has(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error(`File type ${file.mimetype} is not allowed for deliverables`), false);
     }
 };
 
@@ -68,8 +112,15 @@ const uploadPortfolioImage = multer({
     limits: { fileSize: 10 * 1024 * 1024 } // 10MB
 }).single("portfolioImage");
 
+const uploadDeliverables = multer({
+    storage: deliverableStorage,
+    fileFilter: deliverableFilter,
+    limits: { fileSize: 25 * 1024 * 1024 } // 25MB per file
+}).array("deliverableFiles", 10); // max 10 files
+
 module.exports = {
     uploadProfileImage,
     uploadResume,
-    uploadPortfolioImage
+    uploadPortfolioImage,
+    uploadDeliverables
 };

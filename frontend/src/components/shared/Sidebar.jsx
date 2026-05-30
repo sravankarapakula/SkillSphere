@@ -11,7 +11,8 @@ import {
     HiOutlineDocumentText,
     HiOutlineXMark,
     HiOutlineMagnifyingGlass,
-    HiOutlineFolderOpen
+    HiOutlineFolderOpen,
+    HiOutlineQueueList
 } from "react-icons/hi2";
 
 const freelancerLinks = [
@@ -20,6 +21,7 @@ const freelancerLinks = [
     { to: "/dashboard/projects", label: "Projects", icon: HiOutlineBriefcase },
     { to: "/dashboard/proposals", label: "Proposals", icon: HiOutlineDocumentText },
     { to: "/dashboard/my-projects", label: "My Projects", icon: HiOutlineFolderOpen },
+    { to: "/dashboard/tasks", label: "Tasks", icon: HiOutlineQueueList },
     { to: "/dashboard/messages", label: "Messages", icon: HiOutlineChatBubbleLeftRight },
     { to: "/dashboard/settings", label: "Settings", icon: HiOutlineCog6Tooth }
 ];

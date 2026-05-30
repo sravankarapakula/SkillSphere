@@ -3,7 +3,7 @@ const Proposal = require("../models/Proposal.models");
 const Project = require("../models/Project.models");
 const User = require("../models/user.models");
 const Milestone = require("../models/Milestone");
-const { checkAndUpdateOverdueMilestones } = require("./milestoneController");
+const { checkAndUpdateOverdueMilestones, enrichMilestone } = require("./milestoneController");
 const asyncHandler = require("../utils/asynchandler");
 
 const getClientDashboard = asyncHandler(async (req, res) => {
@@ -50,7 +50,8 @@ const getClientDashboard = asyncHandler(async (req, res) => {
     const [
         milestonesDueToday,
         overdueMilestones,
-        pendingApprovals
+        pendingApprovals,
+        projectsWithOverdue
     ] = await Promise.all([
         Milestone.countDocuments({
             project: { $in: activeProjectIds },
@@ -64,8 +65,64 @@ const getClientDashboard = asyncHandler(async (req, res) => {
         Milestone.countDocuments({
             project: { $in: activeProjectIds },
             status: "submitted"
+        }),
+        Milestone.distinct("project", {
+            project: { $in: activeProjectIds },
+            status: "overdue"
         })
     ]);
+
+    const atRiskProjects = projectsWithOverdue.length;
+
+    // Compile needsAttention items (up to 10)
+    const needsAttentionMilestones = await Milestone.find({
+        project: { $in: activeProjectIds },
+        $or: [
+            { status: "submitted" },
+            { status: "overdue" },
+            { 
+                status: { $in: ["pending", "in_progress"] },
+                dueDate: { $gte: startOfToday, $lte: endOfToday }
+            }
+        ]
+    }).populate("project", "title");
+
+    const getPriority = (m) => {
+        if (m.status === "submitted") return 1;
+        if (m.status === "overdue") return 2;
+        if (m.dueDate && new Date(m.dueDate) >= startOfToday && new Date(m.dueDate) <= endOfToday) return 3;
+        return 4;
+    };
+
+    needsAttentionMilestones.sort((a, b) => {
+        const pA = getPriority(a);
+        const pB = getPriority(b);
+        if (pA !== pB) return pA - pB;
+        if (pA === 1) {
+            return new Date(b.submittedAt || b.updatedAt) - new Date(a.submittedAt || a.updatedAt);
+        }
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return new Date(a.dueDate) - new Date(b.dueDate);
+    });
+
+    const needsAttention = needsAttentionMilestones.slice(0, 10).map(m => {
+        const enriched = enrichMilestone(m);
+        return {
+            milestoneId: m._id,
+            projectId: m.project._id,
+            projectTitle: m.project.title,
+            milestoneTitle: m.title,
+            status: m.status,
+            dueDate: m.dueDate,
+            submittedAt: m.submittedAt,
+            timeRemaining: enriched.timeRemaining,
+            lateness: enriched.lateness,
+            isOverdue: enriched.isOverdue,
+            isUrgent: enriched.isUrgent,
+            isDueSoon: enriched.isDueSoon
+        };
+    });
 
     res.status(200).json({
         success: true,
@@ -80,7 +137,9 @@ const getClientDashboard = asyncHandler(async (req, res) => {
             completedProjects,
             milestonesDueToday,
             overdueMilestones,
-            pendingApprovals
+            pendingApprovals,
+            atRiskProjects,
+            needsAttention
         }
     });
 });
@@ -149,6 +208,7 @@ const getFreelancerDashboard = asyncHandler(async (req, res) => {
             completedProjects,
             gigsApplied: totalProposalsSent,
             upcomingDeadlines,
+            tasksThisWeek: upcomingDeadlines,
             overdueTasks,
             awaitingApproval
         }

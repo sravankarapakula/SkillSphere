@@ -23,6 +23,10 @@ import {
     applyMilestoneDeleted,
     applyMilestoneStatusChanged
 } from "../../redux/slices/milestoneSlice";
+import {
+    applyDeliverableSubmitted,
+    applyDeliverableReviewed
+} from "../../redux/slices/deliverableSlice";
 
 export default function SocketProvider({ children }) {
     const { token, user } = useSelector((state) => state.auth);
@@ -146,6 +150,20 @@ export default function SocketProvider({ children }) {
             }));
         };
 
+        const handleDeliverableSubmitted = (payload) => {
+            dispatch(applyDeliverableSubmitted(payload));
+            if (payload.milestone) {
+                dispatch(applyMilestoneStatusChanged({ milestone: payload.milestone }));
+            }
+        };
+
+        const handleDeliverableReviewed = (payload) => {
+            dispatch(applyDeliverableReviewed(payload));
+            if (payload.milestone) {
+                dispatch(applyMilestoneStatusChanged({ milestone: payload.milestone }));
+            }
+        };
+
         socket.on("connect", handleConnect);
         socket.on("disconnect", handleDisconnect);
         socket.on("online-users", handleOnlineUsers);
@@ -178,6 +196,8 @@ export default function SocketProvider({ children }) {
         socket.on("milestone_overdue", handleMilestoneOverdue);
         socket.on("milestone_status_changed", handleMilestoneStatusChanged);
         socket.on("project_progress_updated", handleProgressUpdated);
+        socket.on("deliverable_submitted", handleDeliverableSubmitted);
+        socket.on("deliverable_reviewed", handleDeliverableReviewed);
 
         if (socket.connected) {
             handleConnect();
@@ -210,6 +230,8 @@ export default function SocketProvider({ children }) {
             socket.off("milestone_overdue", handleMilestoneOverdue);
             socket.off("milestone_status_changed", handleMilestoneStatusChanged);
             socket.off("project_progress_updated", handleProgressUpdated);
+            socket.off("deliverable_submitted", handleDeliverableSubmitted);
+            socket.off("deliverable_reviewed", handleDeliverableReviewed);
             disconnectSocket();
             dispatch(setSocketConnected(false));
         };

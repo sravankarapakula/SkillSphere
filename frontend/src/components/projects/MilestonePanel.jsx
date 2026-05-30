@@ -6,7 +6,10 @@ import {
     HiOutlineTrash,
     HiOutlinePlusCircle,
     HiOutlineLockClosed,
-    HiOutlineCalendarDays
+    HiOutlineCalendarDays,
+    HiOutlineCloudArrowUp,
+    HiOutlineEye,
+    HiOutlinePaperClip
 } from "react-icons/hi2";
 import {
     fetchProjectMilestones,
@@ -18,6 +21,8 @@ import {
 } from "../../redux/slices/milestoneSlice";
 import MilestoneStatusBadge from "./MilestoneStatusBadge";
 import MilestoneFormModal from "./MilestoneFormModal";
+import DeliverableSubmissionModal from "./DeliverableSubmissionModal";
+import DeliverableReviewPanel from "./DeliverableReviewPanel";
 import LoadingSpinner from "../shared/LoadingSpinner";
 import Button from "../shared/Button";
 
@@ -49,6 +54,10 @@ export default function MilestonePanel({
     const [editingMilestone, setEditingMilestone] = useState(null);
     const [actionError, setActionError] = useState("");
 
+    // Deliverable modals
+    const [submitModalMilestone, setSubmitModalMilestone] = useState(null);
+    const [reviewPanelMilestone, setReviewPanelMilestone] = useState(null);
+
     useEffect(() => {
         dispatch(fetchProjectMilestones(projectId));
         return () => {
@@ -71,6 +80,7 @@ export default function MilestonePanel({
     const overdueCount = milestones.filter((m) => m.status === "overdue").length;
     const submittedCount = milestones.filter((m) => m.status === "submitted").length;
     const approvedCount = milestones.filter((m) => m.status === "approved").length;
+    const rejectedCount = milestones.filter((m) => m.status === "rejected").length;
 
     const isProjectActive = !["completed", "cancelled"].includes(projectStatus);
 
@@ -123,6 +133,16 @@ export default function MilestonePanel({
         }
     };
 
+    const handleDeliverableSubmitSuccess = () => {
+        // Refetch milestones to get updated status
+        dispatch(fetchProjectMilestones(projectId));
+    };
+
+    const handleDeliverableReviewComplete = () => {
+        // Refetch milestones to get updated status
+        dispatch(fetchProjectMilestones(projectId));
+    };
+
     if (isLoading && milestones.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center p-12 bg-white border border-surface-200 rounded-2xl shadow-sm">
@@ -171,7 +191,7 @@ export default function MilestonePanel({
 
             {/* Summary Bar */}
             {totalCount > 0 && (
-                <div className="px-6 py-4 bg-surface-50/50 border-b border-surface-100 grid grid-cols-3 sm:grid-cols-6 gap-4">
+                <div className="px-6 py-4 bg-surface-50/50 border-b border-surface-100 grid grid-cols-3 sm:grid-cols-7 gap-4">
                     <div className="text-center sm:text-left">
                         <p className="text-xs text-surface-500 font-semibold uppercase tracking-wider">Total</p>
                         <p className="text-lg font-bold text-surface-900">{totalCount}</p>
@@ -191,6 +211,10 @@ export default function MilestonePanel({
                     <div className="text-center sm:text-left">
                         <p className="text-xs text-violet-600 font-semibold uppercase tracking-wider">Submitted</p>
                         <p className="text-lg font-bold text-violet-700">{submittedCount}</p>
+                    </div>
+                    <div className="text-center sm:text-left">
+                        <p className="text-xs text-orange-600 font-semibold uppercase tracking-wider">Rejected</p>
+                        <p className="text-lg font-bold text-orange-700">{rejectedCount}</p>
                     </div>
                     <div className="text-center sm:text-left">
                         <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wider">Approved</p>
@@ -227,6 +251,7 @@ export default function MilestonePanel({
                             const isInProgress = milestone.status === "in_progress";
                             const isSubmitted = milestone.status === "submitted";
                             const isPending = milestone.status === "pending";
+                            const isRejected = milestone.status === "rejected";
                             const isOverdueState = milestone.status === "overdue" || milestone.isOverdue;
 
                             let cardClass = "border-surface-200 hover:border-surface-300";
@@ -234,6 +259,7 @@ export default function MilestonePanel({
                             else if (isApproved) cardClass = "bg-emerald-50/20 border-emerald-100";
                             else if (isInProgress) cardClass = "bg-blue-50/20 border-blue-100";
                             else if (isSubmitted) cardClass = "bg-violet-50/20 border-violet-100";
+                            else if (isRejected) cardClass = "bg-orange-50/10 border-orange-200 hover:border-orange-300";
 
                             let warningText = "";
                             let warningType = "";
@@ -346,6 +372,19 @@ export default function MilestonePanel({
 
                                     {/* Right Side Actions */}
                                     <div className="flex items-center justify-end gap-2.5 flex-shrink-0 self-end md:self-center">
+                                        {/* View Deliverables Button - visible when any submission exists */}
+                                        {(isSubmitted || isApproved || isRejected) && (
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={() => setReviewPanelMilestone(milestone)}
+                                                className="rounded-xl text-xs flex items-center gap-1"
+                                            >
+                                                <HiOutlineEye className="w-3.5 h-3.5" />
+                                                View Deliverables
+                                            </Button>
+                                        )}
+
                                         {/* Client Actions */}
                                         {isClient && isProjectActive && (
                                             <>
@@ -371,10 +410,11 @@ export default function MilestonePanel({
                                                     <Button
                                                         variant="primary"
                                                         size="sm"
-                                                        onClick={() => handleStatusUpdate(milestone._id, "approved")}
+                                                        onClick={() => setReviewPanelMilestone(milestone)}
                                                         className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
                                                     >
-                                                        Approve Work
+                                                        <HiOutlinePaperClip className="w-3.5 h-3.5" />
+                                                        Review & Approve
                                                     </Button>
                                                 )}
                                             </>
@@ -393,13 +433,14 @@ export default function MilestonePanel({
                                                         Start Work
                                                     </Button>
                                                 )}
-                                                {(isInProgress || milestone.status === "overdue") && (
+                                                {(isInProgress || milestone.status === "overdue" || isRejected) && (
                                                     <Button
                                                         variant="primary"
                                                         size="sm"
-                                                        onClick={() => handleStatusUpdate(milestone._id, "submitted")}
+                                                        onClick={() => setSubmitModalMilestone(milestone)}
                                                         className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs"
                                                     >
+                                                        <HiOutlineCloudArrowUp className="w-3.5 h-3.5" />
                                                         Submit Deliverables
                                                     </Button>
                                                 )}
@@ -422,6 +463,25 @@ export default function MilestonePanel({
                 isLoading={isLoading}
                 remainingBudget={budgetInfo.remainingBudget}
                 totalBudget={budgetInfo.totalBudget}
+            />
+
+            {/* Deliverable Submission Modal (Freelancer) */}
+            <DeliverableSubmissionModal
+                isOpen={!!submitModalMilestone}
+                onClose={() => setSubmitModalMilestone(null)}
+                milestoneId={submitModalMilestone?._id}
+                milestoneTitle={submitModalMilestone?.title}
+                onSubmitSuccess={handleDeliverableSubmitSuccess}
+            />
+
+            {/* Deliverable Review Panel (Client & Freelancer) */}
+            <DeliverableReviewPanel
+                isOpen={!!reviewPanelMilestone}
+                onClose={() => setReviewPanelMilestone(null)}
+                milestoneId={reviewPanelMilestone?._id}
+                milestoneTitle={reviewPanelMilestone?.title}
+                isClient={isClient}
+                onReviewComplete={handleDeliverableReviewComplete}
             />
         </div>
     );

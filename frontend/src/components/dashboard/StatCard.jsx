@@ -1,6 +1,8 @@
-export default function StatCard({ label, value, icon: Icon, color, trend }) {
-    return (
-        <div className="bg-white rounded-xl border border-surface-200 p-5 hover:shadow-md transition-all duration-300 group">
+import { Link } from "react-router-dom";
+
+export default function StatCard({ label, value, icon: Icon, color, trend, to }) {
+    const cardContent = (
+        <div className="bg-white rounded-xl border border-surface-200 p-5 hover:shadow-md transition-all duration-300 group h-full">
             <div className="flex items-center justify-between mb-3">
                 <div
                     className={`h-10 w-10 rounded-lg flex items-center justify-center ${color}`}
@@ -11,8 +13,8 @@ export default function StatCard({ label, value, icon: Icon, color, trend }) {
                     <span
                         className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                             trend >= 0
-                                ? "bg-emerald-50 text-emerald-600"
-                                : "bg-red-50 text-red-600"
+                                ? "bg-emerald-55 text-emerald-600"
+                                : "bg-red-55 text-red-600"
                         }`}
                     >
                         {trend >= 0 ? "+" : ""}
@@ -26,4 +28,14 @@ export default function StatCard({ label, value, icon: Icon, color, trend }) {
             <p className="text-sm text-surface-500 mt-1">{label}</p>
         </div>
     );
+
+    if (to) {
+        return (
+            <Link to={to} className="block cursor-pointer">
+                {cardContent}
+            </Link>
+        );
+    }
+
+    return cardContent;
 }

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { HiOutlineFolderOpen, HiOutlineBriefcase, HiOutlineUser, HiOutlineClock } from "react-icons/hi2";
 import { fetchUserProjects } from "../../redux/slices/projectSlice";
 import StatusBadge from "../../components/proposals/StatusBadge";
@@ -10,6 +10,8 @@ export default function MyProjectsPage() {
     const dispatch = useDispatch();
     const { user } = useSelector((state) => state.auth);
     const { projects, isLoading, error } = useSelector((state) => state.project);
+    const [searchParams] = useSearchParams();
+    const filter = searchParams.get("filter");
 
     useEffect(() => {
         dispatch(fetchUserProjects());
@@ -17,16 +19,31 @@ export default function MyProjectsPage() {
 
     const isClient = user?.role === "client";
 
+    // Apply local query parameter filtering
+    const visibleProjects = filter === "at-risk"
+        ? projects.filter(p => p.isAtRisk)
+        : projects;
+
     return (
         <div className="space-y-6 animate-fade-in">
-            <div>
-                <p className="text-sm font-medium text-primary-600">Active Workspace</p>
-                <h1 className="text-2xl font-bold text-surface-900 mt-1">
-                    {isClient ? "Managed Projects" : "My Projects"}
-                </h1>
-                <p className="text-sm text-surface-500 mt-1">
-                    View active contracts, track milestones, and converse with your partner.
-                </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <p className="text-sm font-medium text-primary-600">Active Workspace</p>
+                    <h1 className="text-2xl font-bold text-surface-900 mt-1">
+                        {isClient ? "Managed Projects" : "My Projects"}
+                    </h1>
+                    <p className="text-sm text-surface-500 mt-1">
+                        View active contracts, track milestones, and converse with your partner.
+                    </p>
+                </div>
+                {filter === "at-risk" && (
+                    <Link
+                        to="/dashboard/my-projects"
+                        className="self-start sm:self-center px-4 py-2 bg-primary-50 hover:bg-primary-100 text-primary-750 font-bold text-xs rounded-xl border border-primary-200 transition"
+                    >
+                        View All Projects
+                    </Link>
+                )}
             </div>
 
             {isLoading && <LoadingSpinner size="lg" className="py-20" />}
@@ -66,9 +83,30 @@ export default function MyProjectsPage() {
                 </div>
             )}
 
-            {!isLoading && !error && projects.length > 0 && (
+            {/* Empty state for at-risk filter */}
+            {!isLoading && !error && projects.length > 0 && visibleProjects.length === 0 && filter === "at-risk" && (
+                <div className="bg-white border border-surface-200 rounded-2xl py-16 px-6 text-center shadow-sm max-w-lg mx-auto">
+                    <div className="h-14 w-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100 text-emerald-600">
+                        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <h2 className="text-lg font-extrabold text-surface-900">No At-Risk Projects</h2>
+                    <p className="text-sm text-surface-500 mt-2 max-w-xs mx-auto font-medium">
+                        You're all caught up! None of your active projects have overdue milestones.
+                    </p>
+                    <Link
+                        to="/dashboard/my-projects"
+                        className="mt-5 inline-flex items-center justify-center px-4 py-2 border border-surface-200 text-sm font-bold rounded-xl text-surface-700 bg-surface-50 hover:bg-surface-100 transition"
+                    >
+                        View All Projects
+                    </Link>
+                </div>
+            )}
+
+            {!isLoading && !error && visibleProjects.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {projects.map((project) => {
+                    {visibleProjects.map((project) => {
                         const partner = isClient ? project.freelancer : project.client;
                         const agreedAmount = project.agreedAmount || 0;
                         const progress = project.progressPercentage || 0;
@@ -77,7 +115,9 @@ export default function MyProjectsPage() {
                         return (
                             <article
                                 key={project._id}
-                                className="bg-white border border-surface-200 hover:border-primary-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between"
+                                className={`bg-white border hover:border-primary-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between ${
+                                    project.isAtRisk ? "border-red-200 bg-red-50/5 hover:border-red-300" : "border-surface-200"
+                                }`}
                             >
                                 <div className="space-y-4">
                                     {/* Top Line: Gig Title and Status */}
@@ -85,7 +125,14 @@ export default function MyProjectsPage() {
                                         <h3 className="font-bold text-surface-900 text-lg leading-snug">
                                             {project.gig?.title || "Contract Execution Workspace"}
                                         </h3>
-                                        <StatusBadge status={project.status} />
+                                        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                                            <StatusBadge status={project.status} />
+                                            {project.isAtRisk && (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold bg-red-50 text-red-700 border border-red-200 uppercase tracking-wide">
+                                                    ⚠️ At Risk
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Partner details */}
@@ -146,7 +193,7 @@ export default function MyProjectsPage() {
                                         className="w-full inline-flex items-center justify-center px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl shadow-sm hover:shadow transition duration-150 text-sm"
                                     >
                                         Enter Project Workspace
-                                    </Link>
+                                                    </Link>
                                 </div>
                             </article>
                         );

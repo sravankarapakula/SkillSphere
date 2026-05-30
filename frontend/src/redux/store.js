@@ -4,6 +4,7 @@ import profileReducer from "./slices/profileSlice";
 import messageReducer from "./slices/messageSlice";
 import projectReducer from "./slices/projectSlice";
 import milestoneReducer from "./slices/milestoneSlice";
+import deliverableReducer from "./slices/deliverableSlice";
 
 const store = configureStore({
     reducer: {
@@ -11,9 +12,11 @@ const store = configureStore({
         profile: profileReducer,
         message: messageReducer,
         project: projectReducer,
-        milestone: milestoneReducer
+        milestone: milestoneReducer,
+        deliverable: deliverableReducer
     },
     devTools: import.meta.env.DEV
 });
 
 export default store;
+

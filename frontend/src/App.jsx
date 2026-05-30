@@ -35,6 +35,7 @@ import GigProposalsPage from "./pages/proposals/GigProposalsPage";
 import MessagesPage from "./pages/Messages";
 import MyProjectsPage from "./pages/projects/MyProjectsPage";
 import ProjectWorkspace from "./pages/projects/ProjectWorkspace";
+import TasksPage from "./pages/tasks/TasksPage";
 import SocketProvider from "./components/shared/SocketProvider";
 
 export default function App() {
@@ -113,11 +114,12 @@ export default function App() {
                         <Route path="/dashboard/gigs/:gigId/proposals" element={<GigProposalsPage />} />
                     </Route>
 
-                    {/* Proposal tracking */}
+// Proposal tracking
                     <Route
                         element={<ProtectedRoute allowedRoles={["freelancer"]} />}
                     >
                         <Route path="/dashboard/proposals" element={<MyProposalsPage />} />
+                        <Route path="/dashboard/tasks" element={<TasksPage />} />
                     </Route>
 
                     {/* Project workspace routes */}
