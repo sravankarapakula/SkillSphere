@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import { HiOutlineArrowLeft, HiOutlineClock } from "react-icons/hi2";
+import { HiOutlineArrowLeft, HiOutlineClock, HiOutlineStar } from "react-icons/hi2";
 import { fetchProjectById, updateProjectDetails, resetProjectState } from "../../redux/slices/projectSlice";
 import { setActiveConversation } from "../../redux/slices/messageSlice";
 import StatusBadge from "../../components/proposals/StatusBadge";
@@ -9,6 +9,9 @@ import ChatWindow from "../../components/chat/ChatWindow";
 import LoadingSpinner from "../../components/shared/LoadingSpinner";
 import Button from "../../components/shared/Button";
 import MilestonePanel from "../../components/projects/MilestonePanel";
+import ReviewModal from "../../components/reviews/ReviewModal";
+import ReviewsSection from "../../components/reviews/ReviewsSection";
+import { getReviewStatus } from "../../api/reviewApi";
 
 export default function ProjectWorkspace() {
     const { projectId } = useParams();
@@ -19,6 +22,8 @@ export default function ProjectWorkspace() {
 
     const [updating, setUpdating] = useState(false);
     const [actionError, setActionError] = useState("");
+    const [showReviewModal, setShowReviewModal] = useState(false);
+    const [reviewStatus, setReviewStatus] = useState(null);
 
     useEffect(() => {
         dispatch(fetchProjectById(projectId));
@@ -32,6 +37,14 @@ export default function ProjectWorkspace() {
             dispatch(setActiveConversation(currentConversation._id));
         }
     }, [currentConversation, dispatch]);
+
+    useEffect(() => {
+        if (currentProject?.status === "completed") {
+            getReviewStatus(projectId)
+                .then((res) => setReviewStatus(res.data))
+                .catch(() => setReviewStatus(null));
+        }
+    }, [currentProject?.status, projectId]);
 
     if (isLoading && !currentProject) {
         return <LoadingSpinner size="lg" className="py-20" />;
@@ -147,12 +160,32 @@ export default function ProjectWorkspace() {
                         </Button>
                     </div>
                 )}
+
+                {projectStatus === "completed" && reviewStatus?.canReview && !reviewStatus?.hasReviewed && (
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setShowReviewModal(true)}
+                    >
+                        <HiOutlineStar className="h-4 w-4" />
+                        Leave a Review
+                    </Button>
+                )}
             </div>
 
             {actionError && (
                 <p className="rounded-xl bg-red-50 border border-red-100 px-4 py-2.5 text-xs text-red-700 flex-shrink-0">
                     {actionError}
                 </p>
+            )}
+
+            {projectStatus === "completed" && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center gap-3 flex-shrink-0">
+                    <span className="text-emerald-600 text-sm font-semibold">✓ Project Completed</span>
+                    {reviewStatus?.hasReviewed && (
+                        <span className="text-emerald-500 text-xs font-medium">• Review submitted</span>
+                    )}
+                </div>
             )}
 
             {/* Split Screen Panel */}
@@ -228,13 +261,16 @@ export default function ProjectWorkspace() {
                         </div>
                     </div>
 
-                    {/* Milestones Panel */}
                     <MilestonePanel
                         projectId={projectId}
                         isClient={isClient}
                         projectStatus={projectStatus}
                         agreedAmount={agreedAmount}
                     />
+
+                    {projectStatus === "completed" && (
+                        <ReviewsSection projectId={projectId} />
+                    )}
                 </div>
 
                 {/* Right Panel: Linked Chat Module */}
@@ -257,6 +293,20 @@ export default function ProjectWorkspace() {
                     )}
                 </div>
             </div>
+
+            <ReviewModal
+                isOpen={showReviewModal}
+                onClose={() => {
+                    setShowReviewModal(false);
+                    getReviewStatus(projectId)
+                        .then((res) => setReviewStatus(res.data))
+                        .catch(() => {});
+                }}
+                projectId={projectId}
+                projectTitle={currentProject.gig?.title || "This Project"}
+                revieweeName={partner?.name || "Participant"}
+                reviewerRole={reviewStatus?.reviewerRole}
+            />
         </div>
     );
 }

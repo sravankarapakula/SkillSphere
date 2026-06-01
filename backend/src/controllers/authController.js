@@ -12,7 +12,14 @@ const getPublicUser = (user) => ({
     _id: user._id,
     name: user.name,
     email: user.email,
-    role: user.role
+    role: user.role,
+    isSuspended: user.isSuspended,
+    freelancerRating: user.freelancerRating,
+    freelancerReviewCount: user.freelancerReviewCount,
+    clientRating: user.clientRating,
+    clientReviewCount: user.clientReviewCount,
+    freelancerCompletedProjects: user.freelancerCompletedProjects,
+    clientCompletedProjects: user.clientCompletedProjects
 });
 
 const registerUser = asyncHandler(async (req, res) => {
@@ -112,6 +119,13 @@ const loginUser = asyncHandler(async (req, res) => {
         throw new AppError("Invalid credentials", 401);
     }
 
+    if (user.isSuspended) {
+        return res.status(403).json({
+            success: false,
+            message: "Your account has been suspended"
+        });
+    }
+
     const tokens = generateTokenPair(user._id, user.role);
 
     res.status(200).json({
@@ -143,6 +157,13 @@ const refreshAuthTokens = asyncHandler(async (req, res) => {
         return res.status(401).json({
             success: false,
             message: "User no longer exists"
+        });
+    }
+
+    if (user.isSuspended) {
+        return res.status(403).json({
+            success: false,
+            message: "Your account has been suspended"
         });
     }
 

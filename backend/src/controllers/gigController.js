@@ -76,7 +76,7 @@ const createGig = asyncHandler(async (req, res) => {
 
 const getGigs = asyncHandler(async (req, res) => {
     const { page, limit, skip } = getPagination(req.query);
-    const filter = buildGigFilter(req.query);
+    const filter = { ...buildGigFilter(req.query), isDisabled: { $ne: true } };
 
     const [gigs, total] = await Promise.all([
         Gig.find(filter)
@@ -105,6 +105,17 @@ const getGigById = asyncHandler(async (req, res) => {
     const gig = await Gig.findById(req.params.id).populate("client", "name email");
 
     if (!gig) {
+        return res.status(404).json({
+            success: false,
+            message: "Gig not found"
+        });
+    }
+
+    const requesterId = req.user?._id?.toString();
+    const isOwner = requesterId && gig.client?._id?.toString() === requesterId;
+    const isAdmin = req.user?.role === "admin";
+
+    if (gig.isDisabled && !isOwner && !isAdmin) {
         return res.status(404).json({
             success: false,
             message: "Gig not found"

@@ -17,6 +17,7 @@ const milestoneRoutes = require("./routes/milestoneRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 const deliverableRoutes = require("./routes/deliverableRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 const errorHandler = require("./middleware/errorMiddleware");
 
 // CORS configuration — restrict origins in production
@@ -68,6 +69,7 @@ app.use("/api/milestones", milestoneRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/deliverables", deliverableRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api", messageRoutes);
 
 // Global error handler (must be last)

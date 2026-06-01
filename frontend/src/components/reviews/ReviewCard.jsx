@@ -14,12 +14,23 @@ export default function ReviewCard({ review }) {
           })
         : "";
 
-    const categories = [
-        { key: "communication", label: "Communication" },
-        { key: "quality", label: "Quality" },
-        { key: "timeliness", label: "Timeliness" },
-        { key: "professionalism", label: "Professionalism" }
-    ];
+    const isClientReview = review.reviewType === "client_to_freelancer" || 
+        ratings.qualityOfWork !== undefined || 
+        ratings.quality !== undefined;
+
+    const categories = isClientReview
+        ? [
+              { key: "communication", label: "Communication" },
+              { key: "qualityOfWork", label: "Quality Of Work" },
+              { key: "timeliness", label: "Timeliness" },
+              { key: "professionalism", label: "Professionalism" }
+          ]
+        : [
+              { key: "communication", label: "Communication" },
+              { key: "requirementClarity", label: "Requirement Clarity" },
+              { key: "responsiveness", label: "Responsiveness" },
+              { key: "professionalism", label: "Professionalism" }
+          ];
 
     return (
         <div className="bg-white rounded-xl border border-surface-200 p-5">
@@ -51,17 +62,22 @@ export default function ReviewCard({ review }) {
 
             {/* Category Ratings */}
             <div className="flex flex-wrap gap-2 mb-3">
-                {categories.map(({ key, label }) => (
-                    ratings[key] != null && (
-                        <span
-                            key={key}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface-50 border border-surface-100 rounded-lg text-xs font-medium text-surface-600"
-                        >
-                            {label}
-                            <span className="font-bold text-surface-800">{ratings[key]}</span>
-                        </span>
-                    )
-                ))}
+                {categories.map(({ key, label }) => {
+                    const value = ratings[key] !== undefined 
+                        ? ratings[key] 
+                        : (key === "qualityOfWork" ? ratings.quality : undefined);
+                    return (
+                        value != null && (
+                            <span
+                                key={key}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface-50 border border-surface-100 rounded-lg text-xs font-medium text-surface-600"
+                            >
+                                {label}
+                                <span className="font-bold text-surface-800">{value}</span>
+                            </span>
+                        )
+                    );
+                })}
             </div>
 
             {/* Comment */}

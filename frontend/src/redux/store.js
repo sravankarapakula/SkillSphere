@@ -5,6 +5,8 @@ import messageReducer from "./slices/messageSlice";
 import projectReducer from "./slices/projectSlice";
 import milestoneReducer from "./slices/milestoneSlice";
 import deliverableReducer from "./slices/deliverableSlice";
+import reviewReducer from "./slices/reviewSlice";
+import adminReducer from "./slices/adminSlice";
 
 const store = configureStore({
     reducer: {
@@ -13,7 +15,9 @@ const store = configureStore({
         message: messageReducer,
         project: projectReducer,
         milestone: milestoneReducer,
-        deliverable: deliverableReducer
+        deliverable: deliverableReducer,
+        review: reviewReducer,
+        admin: adminReducer
     },
     devTools: import.meta.env.DEV
 });

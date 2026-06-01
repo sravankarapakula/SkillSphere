@@ -14,7 +14,8 @@ import {
     HiOutlineCalendarDays,
     HiOutlineClock,
     HiOutlineDocumentCheck,
-    HiOutlineExclamationTriangle
+    HiOutlineExclamationTriangle,
+    HiOutlineStar
 } from "react-icons/hi2";
 import { useClientDashboard } from "../../hooks/useDashboardStats";
 import MilestoneStatusBadge from "../../components/projects/MilestoneStatusBadge";
@@ -189,6 +190,25 @@ export default function ClientDashboard() {
             icon: HiOutlineExclamationTriangle,
             color: "text-red-700 bg-red-100",
             to: "/dashboard/my-projects?filter=at-risk"
+        },
+        {
+            label: "Your Rating",
+            value: stats?.averageRating ? stats.averageRating.toFixed(1) : "N/A",
+            icon: HiOutlineStar,
+            color: "text-amber-600 bg-amber-50"
+        },
+        {
+            label: "Reviews Received",
+            value: stats?.totalReviews || 0,
+            icon: HiOutlineCheckCircle,
+            color: "text-amber-600 bg-amber-50"
+        },
+        {
+            label: "Pending Reviews",
+            value: stats?.pendingReviews || 0,
+            icon: HiOutlineDocumentText,
+            color: "text-orange-600 bg-orange-50",
+            to: "/dashboard/my-projects?filter=completed"
         }
     ];
 

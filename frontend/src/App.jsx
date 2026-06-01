@@ -37,6 +37,17 @@ import MyProjectsPage from "./pages/projects/MyProjectsPage";
 import ProjectWorkspace from "./pages/projects/ProjectWorkspace";
 import TasksPage from "./pages/tasks/TasksPage";
 import SocketProvider from "./components/shared/SocketProvider";
+import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminUserDetailsPage from "./pages/admin/AdminUserDetailsPage";
+import AdminGigsPage from "./pages/admin/AdminGigsPage";
+import AdminGigDetailsPage from "./pages/admin/AdminGigDetailsPage";
+import AdminProjectsPage from "./pages/admin/AdminProjectsPage";
+import AdminProjectDetailsPage from "./pages/admin/AdminProjectDetailsPage";
+import AdminReviewsPage from "./pages/admin/AdminReviewsPage";
+import AdminReviewDetailsPage from "./pages/admin/AdminReviewDetailsPage";
+import AdminDeliverablesPage from "./pages/admin/AdminDeliverablesPage";
+import AdminDeliverableDetailsPage from "./pages/admin/AdminDeliverableDetailsPage";
+import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
 
 export default function App() {
     const dispatch = useDispatch();
@@ -100,6 +111,18 @@ export default function App() {
                         element={<ProtectedRoute allowedRoles={["admin"]} />}
                     >
                         <Route path="/dashboard/admin" element={<AdminDashboard />} />
+                        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                        <Route path="/admin/users" element={<AdminUsersPage />} />
+                        <Route path="/admin/users/:userId" element={<AdminUserDetailsPage />} />
+                        <Route path="/admin/gigs" element={<AdminGigsPage />} />
+                        <Route path="/admin/gigs/:gigId" element={<AdminGigDetailsPage />} />
+                        <Route path="/admin/projects" element={<AdminProjectsPage />} />
+                        <Route path="/admin/projects/:projectId" element={<AdminProjectDetailsPage />} />
+                        <Route path="/admin/reviews" element={<AdminReviewsPage />} />
+                        <Route path="/admin/reviews/:reviewId" element={<AdminReviewDetailsPage />} />
+                        <Route path="/admin/deliverables" element={<AdminDeliverablesPage />} />
+                        <Route path="/admin/deliverables/:deliverableId" element={<AdminDeliverableDetailsPage />} />
+                        <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
                     </Route>
 
                     {/* Gig marketplace */}
@@ -114,7 +137,7 @@ export default function App() {
                         <Route path="/dashboard/gigs/:gigId/proposals" element={<GigProposalsPage />} />
                     </Route>
 
-// Proposal tracking
+                    {/* Proposal tracking */}
                     <Route
                         element={<ProtectedRoute allowedRoles={["freelancer"]} />}
                     >
@@ -129,8 +152,8 @@ export default function App() {
                     {/* Placeholder routes for later stages */}
                     <Route path="/dashboard/messages" element={<MessagesPage />} />
                     <Route path="/dashboard/browse" element={<ComingSoon title="Browse Talent" />} />
-                    <Route path="/dashboard/users" element={<ComingSoon title="User Management" />} />
-                    <Route path="/dashboard/analytics" element={<ComingSoon title="Analytics" />} />
+                    <Route path="/dashboard/users" element={<Navigate to="/admin/users" replace />} />
+                    <Route path="/dashboard/analytics" element={<Navigate to="/admin/analytics" replace />} />
                     <Route path="/dashboard/settings" element={<ComingSoon title="Settings" />} />
                 </Route>
             </Route>

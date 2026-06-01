@@ -9,6 +9,8 @@ import {
     HiOutlineUsers,
     HiOutlineChartBarSquare,
     HiOutlineDocumentText,
+    HiOutlineDocumentCheck,
+    HiOutlineStar,
     HiOutlineXMark,
     HiOutlineMagnifyingGlass,
     HiOutlineFolderOpen,
@@ -37,9 +39,12 @@ const clientLinks = [
 
 const adminLinks = [
     { to: "/dashboard", label: "Dashboard", icon: HiOutlineHome, end: true },
-    { to: "/dashboard/users", label: "Users", icon: HiOutlineUsers },
-    { to: "/dashboard/analytics", label: "Analytics", icon: HiOutlineChartBarSquare },
-    { to: "/dashboard/projects", label: "All Gigs", icon: HiOutlineBriefcase },
+    { to: "/admin/users", label: "Users", icon: HiOutlineUsers },
+    { to: "/admin/analytics", label: "Analytics", icon: HiOutlineChartBarSquare },
+    { to: "/admin/gigs", label: "All Gigs", icon: HiOutlineBriefcase },
+    { to: "/admin/projects", label: "Projects", icon: HiOutlineFolderOpen },
+    { to: "/admin/reviews", label: "Reviews", icon: HiOutlineStar },
+    { to: "/admin/deliverables", label: "Deliverables", icon: HiOutlineDocumentCheck },
     { to: "/dashboard/settings", label: "Settings", icon: HiOutlineCog6Tooth }
 ];
 

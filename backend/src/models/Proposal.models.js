@@ -29,7 +29,7 @@ const proposalSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ["submitted", "shortlisted", "accepted", "rejected", "withdrawn", "hired", "completed"],
+            enum: ["submitted", "pending", "discussion", "shortlisted", "accepted", "rejected", "withdrawn", "hired", "completed"],
             default: "submitted"
         },
         shortlistedAt: {

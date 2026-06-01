@@ -17,6 +17,14 @@ async function runMigration() {
         await mongoose.connect(process.env.MONGO_URI);
         console.log("Database connected successfully.");
 
+        // Drop the legacy index 'proposal_1' if it exists
+        try {
+            await Conversation.collection.dropIndex("proposal_1");
+            console.log("Dropped legacy index 'proposal_1'.");
+        } catch (e) {
+            console.log("No legacy index 'proposal_1' found to drop or already dropped.");
+        }
+
         // Fetch all conversations
         const conversations = await Conversation.find({});
         console.log(`Found ${conversations.length} total conversations to analyze.`);
@@ -41,10 +49,20 @@ async function runMigration() {
             // Set canonical proposalId field
             conv.proposalId = proposal._id;
 
-            // Backfill gigId and gigTitle (snapshot)
+            // Set freelancerId and clientId
+            conv.freelancerId = proposal.freelancer;
             if (proposal.gig) {
+                conv.clientId = proposal.gig.client;
                 conv.gigId = proposal.gig._id;
                 conv.gigTitle = proposal.gig.title || "";
+            } else {
+                // Fallback to participants array if gig not populated
+                const other = (conv.participants || []).find(
+                    (p) => p.toString() !== proposal.freelancer.toString()
+                );
+                if (other) {
+                    conv.clientId = other;
+                }
             }
 
             // Determine if there is a linked project

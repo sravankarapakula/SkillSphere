@@ -1,6 +1,7 @@
 const Project = require("../models/Project.models");
 const Conversation = require("../models/Conversation");
 const Gig = require("../models/Gig.models");
+const User = require("../models/user.models");
 const Milestone = require("../models/Milestone");
 const { checkAndUpdateOverdueMilestones } = require("./milestoneController");
 const asyncHandler = require("../utils/asynchandler");
@@ -33,8 +34,8 @@ const getUserProjects = asyncHandler(async (req, res) => {
         ]
     })
     .populate("gig", "title category experienceLevel budgetMin budgetMax status gigStatus")
-    .populate("client", "name email profileImage averageRating totalReviews")
-    .populate("freelancer", "name email profileImage averageRating totalReviews")
+    .populate("client", "name email profileImage averageRating totalReviews freelancerRating freelancerReviewCount clientRating clientReviewCount freelancerCompletedProjects clientCompletedProjects")
+    .populate("freelancer", "name email profileImage averageRating totalReviews freelancerRating freelancerReviewCount clientRating clientReviewCount freelancerCompletedProjects clientCompletedProjects")
     .sort({ updatedAt: -1 });
 
     const projectIds = projects.map(p => p._id);
@@ -65,8 +66,8 @@ const getProjectById = asyncHandler(async (req, res) => {
     const project = await Project.findById(req.params.id)
         .populate("gig")
         .populate("proposal", "coverLetter bidAmount estimatedDays status")
-        .populate("client", "name email profileImage averageRating totalReviews")
-        .populate("freelancer", "name email profileImage averageRating totalReviews");
+        .populate("client", "name email profileImage averageRating totalReviews freelancerRating freelancerReviewCount clientRating clientReviewCount freelancerCompletedProjects clientCompletedProjects")
+        .populate("freelancer", "name email profileImage averageRating totalReviews freelancerRating freelancerReviewCount clientRating clientReviewCount freelancerCompletedProjects clientCompletedProjects");
 
     if (!project) {
         return res.status(404).json({
@@ -129,13 +130,15 @@ const updateProject = asyncHandler(async (req, res) => {
 
     if (isClient) {
         if (status && ["active", "in_progress", "revision", "completed", "cancelled", "paused"].includes(status)) {
-            project.status = status;
-            if (status === "completed") {
+            if (status === "completed" && project.status !== "completed") {
                 project.completedAt = new Date();
                 project.progressPercentage = 100;
-            } else {
+                await User.findByIdAndUpdate(project.client, { $inc: { clientCompletedProjects: 1 } });
+                await User.findByIdAndUpdate(project.freelancer, { $inc: { freelancerCompletedProjects: 1 } });
+            } else if (status !== "completed") {
                 project.completedAt = null;
             }
+            project.status = status;
         }
 
         if (expectedCompletionDate !== undefined) {
@@ -148,8 +151,8 @@ const updateProject = asyncHandler(async (req, res) => {
     // Populate and emit updates
     const updatedProject = await Project.findById(project._id)
         .populate("gig")
-        .populate("client", "name email profileImage averageRating totalReviews")
-        .populate("freelancer", "name email profileImage averageRating totalReviews");
+        .populate("client", "name email profileImage averageRating totalReviews freelancerRating freelancerReviewCount clientRating clientReviewCount freelancerCompletedProjects clientCompletedProjects")
+        .populate("freelancer", "name email profileImage averageRating totalReviews freelancerRating freelancerReviewCount clientRating clientReviewCount freelancerCompletedProjects clientCompletedProjects");
 
     // Sync Gig Status if project completed
     if (status === "completed" || status === "cancelled") {

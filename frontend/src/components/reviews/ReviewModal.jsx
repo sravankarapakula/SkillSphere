@@ -4,45 +4,58 @@ import { HiXMark, HiCheckCircle } from "react-icons/hi2";
 import StarRating from "./StarRating";
 import { submitReview, resetReviewState } from "../../redux/slices/reviewSlice";
 
-const CATEGORIES = [
+const CLIENT_TO_FREELANCER_CATEGORIES = [
     { key: "communication", label: "Communication" },
-    { key: "quality", label: "Quality" },
+    { key: "qualityOfWork", label: "Quality Of Work" },
     { key: "timeliness", label: "Timeliness" },
     { key: "professionalism", label: "Professionalism" }
 ];
 
-export default function ReviewModal({ isOpen, onClose, projectId, projectTitle, revieweeName }) {
-    const dispatch = useDispatch();
-    const { isLoading, isSuccess, isError, message } = useSelector((state) => state.review);
+const FREELANCER_TO_CLIENT_CATEGORIES = [
+    { key: "communication", label: "Communication" },
+    { key: "requirementClarity", label: "Requirement Clarity" },
+    { key: "responsiveness", label: "Responsiveness" },
+    { key: "professionalism", label: "Professionalism" }
+];
 
-    const [ratings, setRatings] = useState({
-        communication: 0,
-        quality: 0,
-        timeliness: 0,
-        professionalism: 0
-    });
+export default function ReviewModal({ isOpen, onClose, projectId, projectTitle, revieweeName, reviewerRole }) {
+    const dispatch = useDispatch();
+    const { isLoading, submitSuccess, isError, message } = useSelector((state) => state.review);
+
+    const [ratings, setRatings] = useState({});
     const [comment, setComment] = useState("");
     const [submitted, setSubmitted] = useState(false);
 
-    const overallRating =
-        Object.values(ratings).reduce((sum, r) => sum + r, 0) / CATEGORIES.length;
+    const categories = reviewerRole === "client" ? CLIENT_TO_FREELANCER_CATEGORIES : FREELANCER_TO_CLIENT_CATEGORIES;
 
-    const allRated = Object.values(ratings).every((r) => r > 0);
+    const overallRating =
+        categories.length > 0
+            ? Object.values(ratings).reduce((sum, r) => sum + r, 0) / categories.length
+            : 0;
+
+    const allRated = categories.length > 0 && categories.every((cat) => ratings[cat.key] > 0);
 
     useEffect(() => {
-        if (isSuccess && !submitted) {
+        if (submitSuccess && !submitted) {
             setSubmitted(true);
         }
-    }, [isSuccess, submitted]);
+    }, [submitSuccess, submitted]);
 
     useEffect(() => {
         if (!isOpen) {
-            setRatings({ communication: 0, quality: 0, timeliness: 0, professionalism: 0 });
+            setRatings({});
             setComment("");
             setSubmitted(false);
             dispatch(resetReviewState());
+        } else {
+            const initial = {};
+            const cats = reviewerRole === "client" ? CLIENT_TO_FREELANCER_CATEGORIES : FREELANCER_TO_CLIENT_CATEGORIES;
+            cats.forEach((cat) => {
+                initial[cat.key] = 0;
+            });
+            setRatings(initial);
         }
-    }, [isOpen, dispatch]);
+    }, [isOpen, reviewerRole, dispatch]);
 
     const handleSubmit = () => {
         if (!allRated) return;
@@ -111,13 +124,13 @@ export default function ReviewModal({ isOpen, onClose, projectId, projectTitle, 
 
                         {/* Rating Categories */}
                         <div className="space-y-4 mb-6">
-                            {CATEGORIES.map(({ key, label }) => (
+                            {categories.map(({ key, label }) => (
                                 <div key={key} className="flex items-center justify-between">
                                     <span className="text-sm font-medium text-surface-700">
                                         {label}
                                     </span>
                                     <StarRating
-                                        rating={ratings[key]}
+                                        rating={ratings[key] || 0}
                                         size="lg"
                                         interactive
                                         onChange={(value) =>

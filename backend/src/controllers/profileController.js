@@ -6,7 +6,7 @@ const asyncHandler = require("../utils/asynchandler");
 // @access  Private (freelancer)
 const getMyProfile = asyncHandler(async (req, res) => {
     const profile = await FreelancerProfile.findOne({ user: req.user._id })
-        .populate("user", "name email role");
+        .populate("user", "name email role averageRating totalReviews freelancerRating freelancerReviewCount clientRating clientReviewCount freelancerCompletedProjects clientCompletedProjects");
 
     if (!profile) {
         return res.status(404).json({
@@ -26,7 +26,7 @@ const getMyProfile = asyncHandler(async (req, res) => {
 // @access  Public
 const getProfileByUserId = asyncHandler(async (req, res) => {
     const profile = await FreelancerProfile.findOne({ user: req.params.userId })
-        .populate("user", "name email");
+        .populate("user", "name email role averageRating totalReviews freelancerRating freelancerReviewCount clientRating clientReviewCount freelancerCompletedProjects clientCompletedProjects");
 
     if (!profile) {
         return res.status(404).json({
@@ -74,11 +74,11 @@ const createOrUpdateProfile = asyncHandler(async (req, res) => {
             { user: req.user._id },
             { $set: profileFields },
             { new: true, runValidators: true }
-        ).populate("user", "name email role");
+        ).populate("user", "name email role averageRating totalReviews freelancerRating freelancerReviewCount clientRating clientReviewCount freelancerCompletedProjects clientCompletedProjects");
     } else {
         // Create
         profile = await FreelancerProfile.create(profileFields);
-        profile = await profile.populate("user", "name email role");
+        profile = await profile.populate("user", "name email role averageRating totalReviews freelancerRating freelancerReviewCount clientRating clientReviewCount freelancerCompletedProjects clientCompletedProjects");
     }
 
     // Recalculate completion score

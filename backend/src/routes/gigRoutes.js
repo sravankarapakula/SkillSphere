@@ -1,8 +1,10 @@
 const express = require("express");
 const { body, param, query } = require("express-validator");
+const jwt = require("jsonwebtoken");
 const protect = require("../middleware/authMiddleware");
 const authorizeRoles = require("../middleware/roleMiddleware");
 const validateRequest = require("../middleware/validateRequest");
+const User = require("../models/user.models");
 const {
     createGig,
     getGigs,
@@ -62,10 +64,33 @@ const listFilters = [
     query("experienceLevel").optional().isIn(experienceLevels)
 ];
 
+const optionalAuth = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer")) {
+        return next();
+    }
+
+    try {
+        const decoded = jwt.verify(authHeader.split(" ")[1], process.env.JWT_SECRET);
+        req.user = await User.findById(decoded.id).select("-password");
+        if (req.user?.isSuspended) {
+            return res.status(403).json({
+                success: false,
+                message: "Your account has been suspended"
+            });
+        }
+    } catch {
+        req.user = null;
+    }
+
+    return next();
+};
+
 router.post("/", protect, authorizeRoles("client"), gigFields, validateRequest, createGig);
 router.get("/", listFilters, validateRequest, getGigs);
 router.get("/my", protect, authorizeRoles("client"), listFilters.slice(0, 2), validateRequest, getMyGigs);
-router.get("/:id", param("id").isMongoId(), validateRequest, getGigById);
+router.get("/:id", optionalAuth, param("id").isMongoId(), validateRequest, getGigById);
 router.put("/:id", protect, authorizeRoles("client"), param("id").isMongoId(), optionalGigFields, validateRequest, updateGig);
 router.delete("/:id", protect, authorizeRoles("client"), param("id").isMongoId(), validateRequest, deleteGig);
 

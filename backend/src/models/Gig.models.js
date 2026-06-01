@@ -68,7 +68,24 @@ const gigSchema = new mongoose.Schema(
         activeFreelancers: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: "User"
-        }]
+        }],
+        isDisabled: {
+            type: Boolean,
+            default: false
+        },
+        disabledReason: {
+            type: String,
+            default: null
+        },
+        disabledAt: {
+            type: Date,
+            default: null
+        },
+        disabledBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null
+        }
     },
     {
         timestamps: { createdAt: true, updatedAt: false }

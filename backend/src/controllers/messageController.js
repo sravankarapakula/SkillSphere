@@ -39,16 +39,19 @@ const createConversation = asyncHandler(async (req, res) => {
         return errorResponse(res, "Proposal not found", 404);
     }
 
-    // Only the gig owner (client) can open a discussion
-    if (proposal.gig.client.toString() !== req.user._id.toString()) {
-        return errorResponse(res, "Only the gig owner can open a discussion", 403);
-    }
-
     // Check if a conversation already exists for this proposal
     const existingConversation = await Conversation.findOne({ proposalId })
         .populate("participants", "name email profileImage profilePicture role");
 
     if (existingConversation) {
+        // Verify req.user._id is a participant in the conversation
+        const isUserParticipant = existingConversation.participants.some(
+            (p) => p._id.toString() === req.user._id.toString()
+        );
+        if (!isUserParticipant) {
+            return errorResponse(res, "Access denied", 403);
+        }
+
         if (!existingConversation.gigTitle) {
             await existingConversation.populate({
                 path: "proposalId",
@@ -58,29 +61,36 @@ const createConversation = asyncHandler(async (req, res) => {
         return successResponse(res, { conversation: enrichConversation(existingConversation, req.user._id) }, "Conversation already exists");
     }
 
+    // Only the gig owner (client) can open a discussion (create it)
+    if (proposal.gig.client.toString() !== req.user._id.toString()) {
+        return errorResponse(res, "Only the gig owner can open a discussion", 403);
+    }
+
     // Create the conversation
     const conversation = await Conversation.create({
-        participants: [req.user._id, proposal.freelancer],
+        participants: [proposal.gig.client, proposal.freelancer],
         proposalId: proposalId,
+        clientId: proposal.gig.client,
+        freelancerId: proposal.freelancer,
         gigId: proposal.gig._id,
         gigTitle: proposal.gig.title || "",
         projectId: null,
         conversationType: "proposal",
         unreadCounts: new Map([
-            [req.user._id.toString(), 0],
+            [proposal.gig.client.toString(), 0],
             [proposal.freelancer.toString(), 0]
         ]),
         unreadAnchorMessage: new Map(),
         lastVisibleMessage: new Map(),
         lastReadMessage: new Map(),
         lastSeenTimestamp: new Map([
-            [req.user._id.toString(), new Date()],
+            [proposal.gig.client.toString(), new Date()],
             [proposal.freelancer.toString(), new Date()]
         ])
     });
 
-    // Update proposal status to "discussion" if it's still pending
-    if (proposal.status === "pending") {
+    // Update proposal status to "discussion" if it's still pending/submitted/shortlisted
+    if (["pending", "submitted", "shortlisted"].includes(proposal.status)) {
         proposal.status = "discussion";
         await proposal.save();
     }

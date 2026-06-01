@@ -23,7 +23,7 @@ const emitProposalUpdate = (req, proposal) => {
 const createProposal = asyncHandler(async (req, res) => {
     const gig = await Gig.findById(req.body.gig);
 
-    if (!gig || gig.status !== "open") {
+    if (!gig || gig.status !== "open" || gig.isDisabled) {
         return res.status(404).json({
             success: false,
             message: "Open gig not found"
@@ -244,6 +244,13 @@ const acceptProposal = asyncHandler(async (req, res) => {
         return res.status(403).json({
             success: false,
             message: "Only the gig owner can accept proposals"
+        });
+    }
+
+    if (gig.isDisabled) {
+        return res.status(400).json({
+            success: false,
+            message: "Disabled gigs cannot accept proposals"
         });
     }
 

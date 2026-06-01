@@ -16,9 +16,12 @@ const httpServer = http.createServer(app);
 const io = initializeSocket(httpServer);
 app.set("io", io);
 
+const migrateExistingReviews = require("./utils/migrateReviews");
+
 mongoose.connect(process.env.MONGO_URI)
-.then(() => {
+.then(async () => {
     console.log("MongoDB Connected");
+    await migrateExistingReviews();
 
     httpServer.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);

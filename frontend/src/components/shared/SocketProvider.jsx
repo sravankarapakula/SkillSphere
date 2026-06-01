@@ -27,6 +27,12 @@ import {
     applyDeliverableSubmitted,
     applyDeliverableReviewed
 } from "../../redux/slices/deliverableSlice";
+import {
+    applySocketReviewCreated
+} from "../../redux/slices/reviewSlice";
+import {
+    updateUserRatings
+} from "../../redux/slices/authSlice";
 
 export default function SocketProvider({ children }) {
     const { token, user } = useSelector((state) => state.auth);
@@ -164,6 +170,39 @@ export default function SocketProvider({ children }) {
             }
         };
 
+        const handleReviewCreated = (payload) => {
+            dispatch(applySocketReviewCreated(payload));
+            const review = payload.review || payload;
+            if (review) {
+                if (review.reviewee) {
+                    dispatch(updateUserRatings({
+                        userId: review.reviewee._id,
+                        ratings: {
+                            freelancerRating: review.reviewee.freelancerRating,
+                            freelancerReviewCount: review.reviewee.freelancerReviewCount,
+                            clientRating: review.reviewee.clientRating,
+                            clientReviewCount: review.reviewee.clientReviewCount,
+                            freelancerCompletedProjects: review.reviewee.freelancerCompletedProjects,
+                            clientCompletedProjects: review.reviewee.clientCompletedProjects
+                        }
+                    }));
+                }
+                if (review.reviewer) {
+                    dispatch(updateUserRatings({
+                        userId: review.reviewer._id,
+                        ratings: {
+                            freelancerRating: review.reviewer.freelancerRating,
+                            freelancerReviewCount: review.reviewer.freelancerReviewCount,
+                            clientRating: review.reviewer.clientRating,
+                            clientReviewCount: review.reviewer.clientReviewCount,
+                            freelancerCompletedProjects: review.reviewer.freelancerCompletedProjects,
+                            clientCompletedProjects: review.reviewer.clientCompletedProjects
+                        }
+                    }));
+                }
+            }
+        };
+
         socket.on("connect", handleConnect);
         socket.on("disconnect", handleDisconnect);
         socket.on("online-users", handleOnlineUsers);
@@ -198,6 +237,7 @@ export default function SocketProvider({ children }) {
         socket.on("project_progress_updated", handleProgressUpdated);
         socket.on("deliverable_submitted", handleDeliverableSubmitted);
         socket.on("deliverable_reviewed", handleDeliverableReviewed);
+        socket.on("review_created", handleReviewCreated);
 
         if (socket.connected) {
             handleConnect();
@@ -232,6 +272,7 @@ export default function SocketProvider({ children }) {
             socket.off("project_progress_updated", handleProgressUpdated);
             socket.off("deliverable_submitted", handleDeliverableSubmitted);
             socket.off("deliverable_reviewed", handleDeliverableReviewed);
+            socket.off("review_created", handleReviewCreated);
             disconnectSocket();
             dispatch(setSocketConnected(false));
         };

@@ -7,6 +7,7 @@ const initialState = {
     isLoading: false,
     isError: false,
     isSuccess: false,
+    submitSuccess: false,
     message: ""
 };
 
@@ -74,6 +75,7 @@ const reviewSlice = createSlice({
             state.isLoading = false;
             state.isError = false;
             state.isSuccess = false;
+            state.submitSuccess = false;
             state.message = "";
         },
         applySocketReviewCreated: (state, action) => {
@@ -94,6 +96,7 @@ const reviewSlice = createSlice({
             .addCase(submitReview.fulfilled, (state, action) => {
                 state.isLoading = false;
                 state.isSuccess = true;
+                state.submitSuccess = true;
                 const review = action.payload.data?.review || action.payload.data;
                 if (review) {
                     state.reviews = [review, ...state.reviews];

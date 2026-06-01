@@ -14,6 +14,16 @@ const conversationSchema = new mongoose.Schema(
             ref: "Proposal",
             required: true
         },
+        clientId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true
+        },
+        freelancerId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true
+        },
         gigId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Gig",
@@ -84,6 +94,8 @@ const conversationSchema = new mongoose.Schema(
 
 // Index for fast lookup of a user's conversations
 conversationSchema.index({ participants: 1 });
+conversationSchema.index({ clientId: 1 });
+conversationSchema.index({ freelancerId: 1 });
 
 // Prevent duplicate conversations for the same proposal
 conversationSchema.index({ proposalId: 1 }, { unique: true });

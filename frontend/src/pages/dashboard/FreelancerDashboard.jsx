@@ -15,7 +15,8 @@ import {
     HiOutlineXCircle,
     HiOutlineCalendarDays,
     HiOutlineClock,
-    HiOutlineDocumentCheck
+    HiOutlineDocumentCheck,
+    HiOutlineStar
 } from "react-icons/hi2";
 import { useFreelancerDashboard } from "../../hooks/useDashboardStats";
 import { getUpcomingTasks } from "../../api/taskApi";
@@ -206,6 +207,25 @@ export default function FreelancerDashboard() {
             value: stats?.awaitingApproval || 0,
             icon: HiOutlineDocumentCheck,
             color: "text-violet-650 bg-violet-50"
+        },
+        {
+            label: "Your Rating",
+            value: stats?.averageRating ? stats.averageRating.toFixed(1) : "N/A",
+            icon: HiOutlineStar,
+            color: "text-amber-600 bg-amber-50"
+        },
+        {
+            label: "Reviews Received",
+            value: stats?.totalReviews || 0,
+            icon: HiOutlineCheckCircle,
+            color: "text-amber-600 bg-amber-50"
+        },
+        {
+            label: "Pending Reviews",
+            value: stats?.pendingReviews || 0,
+            icon: HiOutlineDocumentText,
+            color: "text-orange-600 bg-orange-50",
+            to: "/dashboard/my-projects?filter=completed"
         }
     ];
 

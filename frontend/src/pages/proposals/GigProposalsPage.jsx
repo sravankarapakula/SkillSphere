@@ -145,15 +145,6 @@ export default function GigProposalsPage() {
                                         Negotiate
                                     </Button>
                                 </div>
-                            ) : ["accepted", "hired"].includes(proposal.status) ? (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={workingId === proposal._id}
-                                    onClick={() => handleOpenDiscussion(proposal._id)}
-                                >
-                                    Negotiate
-                                </Button>
                             ) : null
                         }
                     />

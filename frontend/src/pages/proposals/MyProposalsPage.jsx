@@ -1,12 +1,20 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import { HiOutlineDocumentText } from "react-icons/hi2";
 import * as proposalApi from "../../api/proposalApi";
+import * as messageApi from "../../api/messageApi";
 import ProposalCard from "../../components/proposals/ProposalCard";
 import LoadingSpinner from "../../components/shared/LoadingSpinner";
+import Button from "../../components/shared/Button";
+import { setActiveConversation, addNewConversation } from "../../redux/slices/messageSlice";
 
 export default function MyProposalsPage() {
+    const navigate = useNavigate();
+    const dispatch = useDispatch();
     const [proposals, setProposals] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [workingId, setWorkingId] = useState("");
     const [error, setError] = useState("");
 
     useEffect(() => {
@@ -24,6 +32,23 @@ export default function MyProposalsPage() {
 
         loadProposals();
     }, []);
+
+    const handleOpenDiscussion = async (proposalId) => {
+        try {
+            setWorkingId(proposalId);
+            const data = await messageApi.createConversation(proposalId);
+            const conversation = data.data.conversation;
+            
+            dispatch(addNewConversation(conversation));
+            dispatch(setActiveConversation(conversation._id));
+            
+            navigate("/dashboard/messages");
+        } catch (apiError) {
+            setError(apiError.response?.data?.message || "Could not open discussion.");
+        } finally {
+            setWorkingId("");
+        }
+    };
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -52,7 +77,22 @@ export default function MyProposalsPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {proposals.map((proposal) => (
-                    <ProposalCard key={proposal._id} proposal={proposal} />
+                    <ProposalCard
+                        key={proposal._id}
+                        proposal={proposal}
+                        actions={
+                            proposal.status === "discussion" ? (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    isLoading={workingId === proposal._id}
+                                    onClick={() => handleOpenDiscussion(proposal._id)}
+                                >
+                                    Chat with Client
+                                </Button>
+                            ) : null
+                        }
+                    />
                 ))}
             </div>
         </div>

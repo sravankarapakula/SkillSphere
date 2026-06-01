@@ -153,8 +153,8 @@ const getClientDashboard = asyncHandler(async (req, res) => {
             pendingApprovals,
             atRiskProjects,
             needsAttention,
-            averageRating: req.user.averageRating || 0,
-            totalReviews: req.user.totalReviews || 0,
+            averageRating: req.user.clientRating || 0,
+            totalReviews: req.user.clientReviewCount || 0,
             pendingReviews
         }
     });
@@ -239,8 +239,8 @@ const getFreelancerDashboard = asyncHandler(async (req, res) => {
             tasksThisWeek: upcomingDeadlines,
             overdueTasks,
             awaitingApproval,
-            averageRating: req.user.averageRating || 0,
-            totalReviews: req.user.totalReviews || 0,
+            averageRating: req.user.freelancerRating || 0,
+            totalReviews: req.user.freelancerReviewCount || 0,
             pendingReviews
         }
     });

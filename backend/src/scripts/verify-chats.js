@@ -21,6 +21,8 @@ async function runVerification() {
             console.log("Found migrated conversation:");
             console.log(`- _id: ${oneConv._id}`);
             console.log(`- proposalId: ${oneConv.proposalId}`);
+            console.log(`- clientId: ${oneConv.clientId}`);
+            console.log(`- freelancerId: ${oneConv.freelancerId}`);
             console.log(`- gigId: ${oneConv.gigId}`);
             console.log(`- gigTitle: "${oneConv.gigTitle}"`);
             console.log(`- projectId: ${oneConv.projectId}`);

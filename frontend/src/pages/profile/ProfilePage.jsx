@@ -13,13 +13,16 @@ import {
     HiOutlineCurrencyDollar,
     HiOutlineSignal,
     HiOutlinePencilSquare,
-    HiOutlineDocumentText
+    HiOutlineDocumentText,
+    HiOutlineStar
 } from "react-icons/hi2";
+import StarRating from "../../components/reviews/StarRating";
 
 export default function ProfilePage() {
     const dispatch = useDispatch();
     const { profile, isLoading } = useSelector((state) => state.profile);
     const { user } = useSelector((state) => state.auth);
+    const targetUser = profile?.user || user;
 
     useEffect(() => {
         dispatch(fetchMyProfile());
@@ -119,6 +122,46 @@ export default function ProfilePage() {
                             </span>
                         </div>
                     </div>
+
+                    {/* Reputation */}
+                    {((targetUser?.freelancerReviewCount > 0) || (targetUser?.clientReviewCount > 0)) && (
+                        <div className="bg-white rounded-xl border border-surface-200 p-5 space-y-4">
+                            <h3 className="text-sm font-semibold text-surface-800 border-b border-surface-100 pb-2 flex items-center gap-2">
+                                <HiOutlineStar className="h-4 w-4 text-amber-500" />
+                                Reputation
+                            </h3>
+                            
+                            {targetUser.freelancerReviewCount > 0 && (
+                                <div className="space-y-1">
+                                    <span className="text-xs text-surface-400 font-bold uppercase tracking-wider block">
+                                        Freelancer Rating
+                                    </span>
+                                    <div className="flex items-center gap-3">
+                                        <StarRating rating={targetUser.freelancerRating || 0} size="md" />
+                                        <span className="text-xs text-surface-500 font-medium">
+                                            {targetUser.freelancerRating ? targetUser.freelancerRating.toFixed(1) : "0.0"} ({targetUser.freelancerReviewCount} review{targetUser.freelancerReviewCount !== 1 ? "s" : ""})
+                                            {targetUser.freelancerCompletedProjects > 0 && ` • ${targetUser.freelancerCompletedProjects} completed project${targetUser.freelancerCompletedProjects !== 1 ? "s" : ""}`}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {targetUser.clientReviewCount > 0 && (
+                                <div className="space-y-1">
+                                    <span className="text-xs text-surface-400 font-bold uppercase tracking-wider block">
+                                        Client Rating
+                                    </span>
+                                    <div className="flex items-center gap-3">
+                                        <StarRating rating={targetUser.clientRating || 0} size="md" />
+                                        <span className="text-xs text-surface-500 font-medium">
+                                            {targetUser.clientRating ? targetUser.clientRating.toFixed(1) : "0.0"} ({targetUser.clientReviewCount} review{targetUser.clientReviewCount !== 1 ? "s" : ""})
+                                            {targetUser.clientCompletedProjects > 0 && ` • ${targetUser.clientCompletedProjects} completed project${targetUser.clientCompletedProjects !== 1 ? "s" : ""}`}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Completion */}
                     <ProfileCompletionBar score={profile.completionScore} />
