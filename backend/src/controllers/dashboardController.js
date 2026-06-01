@@ -1,6 +1,7 @@
 const Gig = require("../models/Gig.models");
 const Proposal = require("../models/Proposal.models");
 const Project = require("../models/Project.models");
+const Review = require("../models/Review");
 const User = require("../models/user.models");
 const Milestone = require("../models/Milestone");
 const { checkAndUpdateOverdueMilestones, enrichMilestone } = require("./milestoneController");
@@ -124,6 +125,18 @@ const getClientDashboard = asyncHandler(async (req, res) => {
         };
     });
 
+    // Review stats
+    const completedProjectsForReview = await Project.find({
+        client: req.user._id,
+        status: "completed"
+    }).select("_id");
+    const completedProjectIds = completedProjectsForReview.map(p => p._id);
+    const reviewedProjectIds = await Review.find({
+        reviewer: req.user._id,
+        project: { $in: completedProjectIds }
+    }).distinct("project");
+    const pendingReviews = completedProjectIds.length - reviewedProjectIds.length;
+
     res.status(200).json({
         success: true,
         data: {
@@ -139,7 +152,10 @@ const getClientDashboard = asyncHandler(async (req, res) => {
             overdueMilestones,
             pendingApprovals,
             atRiskProjects,
-            needsAttention
+            needsAttention,
+            averageRating: req.user.averageRating || 0,
+            totalReviews: req.user.totalReviews || 0,
+            pendingReviews
         }
     });
 });
@@ -197,6 +213,18 @@ const getFreelancerDashboard = asyncHandler(async (req, res) => {
         })
     ]);
 
+    // Review stats
+    const completedProjectsForReview = await Project.find({
+        freelancer: req.user._id,
+        status: "completed"
+    }).select("_id");
+    const completedProjectIds = completedProjectsForReview.map(p => p._id);
+    const reviewedProjectIds = await Review.find({
+        reviewer: req.user._id,
+        project: { $in: completedProjectIds }
+    }).distinct("project");
+    const pendingReviews = completedProjectIds.length - reviewedProjectIds.length;
+
     res.status(200).json({
         success: true,
         data: {
@@ -210,7 +238,10 @@ const getFreelancerDashboard = asyncHandler(async (req, res) => {
             upcomingDeadlines,
             tasksThisWeek: upcomingDeadlines,
             overdueTasks,
-            awaitingApproval
+            awaitingApproval,
+            averageRating: req.user.averageRating || 0,
+            totalReviews: req.user.totalReviews || 0,
+            pendingReviews
         }
     });
 });

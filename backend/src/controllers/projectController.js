@@ -33,8 +33,8 @@ const getUserProjects = asyncHandler(async (req, res) => {
         ]
     })
     .populate("gig", "title category experienceLevel budgetMin budgetMax status gigStatus")
-    .populate("client", "name email profileImage")
-    .populate("freelancer", "name email profileImage")
+    .populate("client", "name email profileImage averageRating totalReviews")
+    .populate("freelancer", "name email profileImage averageRating totalReviews")
     .sort({ updatedAt: -1 });
 
     const projectIds = projects.map(p => p._id);
@@ -65,8 +65,8 @@ const getProjectById = asyncHandler(async (req, res) => {
     const project = await Project.findById(req.params.id)
         .populate("gig")
         .populate("proposal", "coverLetter bidAmount estimatedDays status")
-        .populate("client", "name email profileImage")
-        .populate("freelancer", "name email profileImage");
+        .populate("client", "name email profileImage averageRating totalReviews")
+        .populate("freelancer", "name email profileImage averageRating totalReviews");
 
     if (!project) {
         return res.status(404).json({
@@ -148,8 +148,8 @@ const updateProject = asyncHandler(async (req, res) => {
     // Populate and emit updates
     const updatedProject = await Project.findById(project._id)
         .populate("gig")
-        .populate("client", "name email profileImage")
-        .populate("freelancer", "name email profileImage");
+        .populate("client", "name email profileImage averageRating totalReviews")
+        .populate("freelancer", "name email profileImage averageRating totalReviews");
 
     // Sync Gig Status if project completed
     if (status === "completed" || status === "cancelled") {

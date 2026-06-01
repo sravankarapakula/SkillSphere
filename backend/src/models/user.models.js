@@ -29,6 +29,21 @@ const userSchema = new mongoose.Schema(
     profileImage: {
         type: String,
         default: ""
+    },
+
+    averageRating: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 5
+    },
+    totalReviews: {
+        type: Number,
+        default: 0
+    },
+    totalRatingPoints: {
+        type: Number,
+        default: 0
     }
 },
 {
