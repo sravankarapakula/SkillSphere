@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { HiOutlineArrowLeft, HiOutlineClock, HiOutlineStar } from "react-icons/hi2";
 import { fetchProjectById, updateProjectDetails, resetProjectState } from "../../redux/slices/projectSlice";
 import { setActiveConversation } from "../../redux/slices/messageSlice";
+import { createPaymentOrder, verifyPaymentSignature, fetchProjectPaymentDetails } from "../../redux/slices/paymentSlice";
 import StatusBadge from "../../components/proposals/StatusBadge";
 import ChatWindow from "../../components/chat/ChatWindow";
 import LoadingSpinner from "../../components/shared/LoadingSpinner";
@@ -12,6 +13,17 @@ import MilestonePanel from "../../components/projects/MilestonePanel";
 import ReviewModal from "../../components/reviews/ReviewModal";
 import ReviewsSection from "../../components/reviews/ReviewsSection";
 import { getReviewStatus } from "../../api/reviewApi";
+import { toast } from "react-hot-toast";
+
+const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+    });
+};
 
 export default function ProjectWorkspace() {
     const { projectId } = useParams();
@@ -19,11 +31,13 @@ export default function ProjectWorkspace() {
     const { user } = useSelector((state) => state.auth);
     const { onlineUsers } = useSelector((state) => state.message);
     const { currentProject, currentConversation, isLoading, error, isSuccess } = useSelector((state) => state.project);
+    const { currentPayment } = useSelector((state) => state.payment || {});
 
     const [updating, setUpdating] = useState(false);
     const [actionError, setActionError] = useState("");
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [reviewStatus, setReviewStatus] = useState(null);
+    const [paying, setPaying] = useState(false);
 
     useEffect(() => {
         dispatch(fetchProjectById(projectId));
@@ -31,6 +45,71 @@ export default function ProjectWorkspace() {
             dispatch(resetProjectState());
         };
     }, [dispatch, projectId]);
+
+    useEffect(() => {
+        if (currentProject?.paymentStatus === "paid") {
+            dispatch(fetchProjectPaymentDetails(projectId));
+        }
+    }, [currentProject?.paymentStatus, projectId, dispatch]);
+
+    const handlePayNow = async () => {
+        try {
+            setPaying(true);
+            const orderResult = await dispatch(createPaymentOrder(projectId)).unwrap();
+            const success = await loadRazorpayScript();
+            if (!success) {
+                toast.error("Razorpay Checkout script failed to load. Please check your connection.");
+                setPaying(false);
+                return;
+            }
+
+            const options = {
+                key: orderResult.key,
+                amount: orderResult.amount,
+                currency: "INR",
+                name: "SkillSphere",
+                description: "Freelance Project Payment",
+                order_id: orderResult.orderId,
+                handler: async function (response) {
+                    try {
+                        toast.loading("Verifying transaction...");
+                        await dispatch(
+                            verifyPaymentSignature({
+                                projectId,
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_signature: response.razorpay_signature
+                            })
+                        ).unwrap();
+                        toast.dismiss();
+                        toast.success("Payment completed successfully!");
+                    } catch (err) {
+                        toast.dismiss();
+                        toast.error(err || "Payment verification failed");
+                    } finally {
+                        setPaying(false);
+                    }
+                },
+                prefill: {
+                    name: user?.name || "",
+                    email: user?.email || ""
+                },
+                theme: {
+                    color: "#2563EB"
+                },
+                modal: {
+                    ondismiss: function () {
+                        setPaying(false);
+                    }
+                }
+            };
+            const rzp = new window.Razorpay(options);
+            rzp.open();
+        } catch (err) {
+            toast.error(err || "Failed to initiate payment");
+            setPaying(false);
+        }
+    };
 
     useEffect(() => {
         if (currentConversation) {
@@ -217,6 +296,57 @@ export default function ProjectWorkspace() {
                                     style={{ width: `${currentProject.progressPercentage || 0}%` }}
                                 />
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Payment Overview */}
+                    <div className="bg-surface-50 border border-surface-100 rounded-2xl p-5 space-y-4">
+                        <div className="flex items-center justify-between border-b border-surface-150 pb-2.5">
+                            <h3 className="text-sm font-bold text-surface-900 flex items-center gap-2">
+                                <span className={`h-2.5 w-2.5 rounded-full ${currentProject.paymentStatus === "paid" ? "bg-emerald-500 animate-pulse" : "bg-amber-500 animate-pulse"}`} />
+                                Payment Overview
+                            </h3>
+                            <span className="text-primary-700 font-bold text-base">
+                                ₹{currentProject.paymentAmount || currentProject.agreedAmount || 0}
+                            </span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-surface-500">Status:</span>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase border ${
+                                        currentProject.paymentStatus === "paid"
+                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                            : "bg-amber-50 text-amber-700 border-amber-200"
+                                    }`}>
+                                        {currentProject.paymentStatus === "paid" ? "Paid" : "Unpaid"}
+                                    </span>
+                                </div>
+                                {currentProject.paymentStatus === "paid" && (
+                                    <>
+                                        {currentProject.paymentDate && (
+                                            <p className="text-xs text-surface-500 font-semibold">
+                                                Paid At: <span className="text-surface-800">{new Date(currentProject.paymentDate).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                                            </p>
+                                        )}
+                                        {currentPayment?.razorpayPaymentId && (
+                                            <p className="text-xs text-surface-500 font-semibold">
+                                                Transaction ID: <span className="text-surface-850 font-mono select-all bg-surface-100 px-2 py-0.5 rounded border border-surface-200">{currentPayment.razorpayPaymentId}</span>
+                                            </p>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+
+                            {isClient && currentProject.paymentStatus === "unpaid" && (
+                                <button
+                                    onClick={handlePayNow}
+                                    disabled={paying}
+                                    className="cursor-pointer inline-flex items-center justify-center px-4 py-2 font-bold text-xs rounded-xl text-white bg-primary-600 hover:bg-primary-700 border border-transparent shadow-sm transition disabled:opacity-50"
+                                >
+                                    {paying ? "Processing..." : "Pay Now"}
+                                </button>
+                            )}
                         </div>
                     </div>
 

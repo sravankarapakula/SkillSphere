@@ -18,6 +18,7 @@ const taskRoutes = require("./routes/taskRoutes");
 const deliverableRoutes = require("./routes/deliverableRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
 const errorHandler = require("./middleware/errorMiddleware");
 
 // CORS configuration — restrict origins in production
@@ -29,6 +30,8 @@ const corsOptions = {
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"]
 };
+
+// server.js / app.js
 
 app.use(cors(corsOptions));
 app.use(helmet());
@@ -70,9 +73,11 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/deliverables", deliverableRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/payments", paymentRoutes);
 app.use("/api", messageRoutes);
 
 // Global error handler (must be last)
 app.use(errorHandler);
+
 
 module.exports = app;

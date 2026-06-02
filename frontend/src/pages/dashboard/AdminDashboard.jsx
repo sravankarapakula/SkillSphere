@@ -6,7 +6,8 @@ import {
     HiOutlineDocumentText,
     HiOutlineFolderOpen,
     HiOutlineUserGroup,
-    HiOutlineUsers
+    HiOutlineUsers,
+    HiOutlineCreditCard
 } from "react-icons/hi2";
 import { useAdminDashboard } from "../../hooks/useDashboardStats";
 
@@ -15,6 +16,34 @@ export default function AdminDashboard() {
     const { stats, isLoading, error } = useAdminDashboard();
 
     const cards = [
+        {
+            label: "Total Transactions",
+            value: stats?.totalTransactions || 0,
+            icon: HiOutlineCreditCard,
+            color: "text-blue-600 bg-blue-50",
+            to: "/dashboard/payments"
+        },
+        {
+            label: "Successful Payments",
+            value: stats?.successfulPayments || 0,
+            icon: HiOutlineCreditCard,
+            color: "text-emerald-600 bg-emerald-50",
+            to: "/dashboard/payments"
+        },
+        {
+            label: "Failed Payments",
+            value: stats?.failedPayments || 0,
+            icon: HiOutlineCreditCard,
+            color: "text-red-650 bg-red-50",
+            to: "/dashboard/payments"
+        },
+        {
+            label: "Platform Revenue",
+            value: stats?.revenue ? `₹${stats.revenue.toLocaleString()}` : "₹0",
+            icon: HiOutlineCreditCard,
+            color: "text-violet-650 bg-violet-50",
+            to: "/dashboard/payments"
+        },
         {
             label: "Total Users",
             value: stats?.totalUsers || 0,

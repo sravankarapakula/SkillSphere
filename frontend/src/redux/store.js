@@ -7,6 +7,7 @@ import milestoneReducer from "./slices/milestoneSlice";
 import deliverableReducer from "./slices/deliverableSlice";
 import reviewReducer from "./slices/reviewSlice";
 import adminReducer from "./slices/adminSlice";
+import paymentReducer from "./slices/paymentSlice";
 
 const store = configureStore({
     reducer: {
@@ -17,10 +18,10 @@ const store = configureStore({
         milestone: milestoneReducer,
         deliverable: deliverableReducer,
         review: reviewReducer,
-        admin: adminReducer
+        admin: adminReducer,
+        payment: paymentReducer
     },
     devTools: import.meta.env.DEV
 });
 
 export default store;
-

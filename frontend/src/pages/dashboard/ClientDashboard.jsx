@@ -15,7 +15,8 @@ import {
     HiOutlineClock,
     HiOutlineDocumentCheck,
     HiOutlineExclamationTriangle,
-    HiOutlineStar
+    HiOutlineStar,
+    HiOutlineCreditCard
 } from "react-icons/hi2";
 import { useClientDashboard } from "../../hooks/useDashboardStats";
 import MilestoneStatusBadge from "../../components/projects/MilestoneStatusBadge";
@@ -122,6 +123,13 @@ export default function ClientDashboard() {
     const { stats, isLoading, error } = useClientDashboard();
 
     const cards = [
+        {
+            label: "Total Payments Made",
+            value: stats?.totalPaymentsMade ? `₹${stats.totalPaymentsMade.toLocaleString()}` : "₹0",
+            icon: HiOutlineCreditCard,
+            color: "text-blue-600 bg-blue-50",
+            to: "/dashboard/payments"
+        },
         {
             label: "Total Gigs Posted",
             value: stats?.totalGigsPosted || 0,

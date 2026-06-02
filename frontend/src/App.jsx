@@ -37,6 +37,7 @@ import MyProjectsPage from "./pages/projects/MyProjectsPage";
 import ProjectWorkspace from "./pages/projects/ProjectWorkspace";
 import TasksPage from "./pages/tasks/TasksPage";
 import SocketProvider from "./components/shared/SocketProvider";
+import PaymentsPage from "./pages/PaymentsPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import AdminUserDetailsPage from "./pages/admin/AdminUserDetailsPage";
 import AdminGigsPage from "./pages/admin/AdminGigsPage";
@@ -69,98 +70,100 @@ export default function App() {
     return (
         <SocketProvider>
             <Routes>
-            {/* Public routes (login, register) — redirect if authenticated */}
-            <Route element={<PublicRoute />}>
-                <Route element={<AuthLayout />}>
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={<RegisterPage />} />
+                {/* Public routes (login, register) — redirect if authenticated */}
+                <Route element={<PublicRoute />}>
+                    <Route element={<AuthLayout />}>
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/register" element={<RegisterPage />} />
+                    </Route>
                 </Route>
-            </Route>
 
-            {/* Protected routes — redirect to login if not authenticated */}
-            <Route element={<ProtectedRoute />}>
-                <Route element={<DashboardLayout />}>
-                    <Route path="/dashboard" element={<DashboardPage />} />
+                {/* Protected routes — redirect to login if not authenticated */}
+                <Route element={<ProtectedRoute />}>
+                    <Route element={<DashboardLayout />}>
+                        <Route path="/dashboard" element={<DashboardPage />} />
 
-                    {/* Profile routes (freelancer) */}
-                    <Route
-                        element={<ProtectedRoute allowedRoles={["freelancer"]} />}
-                    >
-                        <Route path="/dashboard/profile" element={<ProfilePage />} />
-                        <Route path="/dashboard/profile/edit" element={<EditProfilePage />} />
+                        {/* Profile routes (freelancer) */}
+                        <Route
+                            element={<ProtectedRoute allowedRoles={["freelancer"]} />}
+                        >
+                            <Route path="/dashboard/profile" element={<ProfilePage />} />
+                            <Route path="/dashboard/profile/edit" element={<EditProfilePage />} />
+                        </Route>
+
+                        {/* Role-specific dashboard views */}
+                        <Route
+                            path="/dashboard/freelancer"
+                            element={
+                                <ProtectedRoute allowedRoles={["freelancer"]}>
+                                    <FreelancerDashboard />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/dashboard/client"
+                            element={
+                                <ProtectedRoute allowedRoles={["client"]}>
+                                    <ClientDashboard />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            element={<ProtectedRoute allowedRoles={["admin"]} />}
+                        >
+                            <Route path="/dashboard/admin" element={<AdminDashboard />} />
+                            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                            <Route path="/admin/users" element={<AdminUsersPage />} />
+                            <Route path="/admin/users/:userId" element={<AdminUserDetailsPage />} />
+                            <Route path="/admin/gigs" element={<AdminGigsPage />} />
+                            <Route path="/admin/gigs/:gigId" element={<AdminGigDetailsPage />} />
+                            <Route path="/admin/projects" element={<AdminProjectsPage />} />
+                            <Route path="/admin/projects/:projectId" element={<AdminProjectDetailsPage />} />
+                            <Route path="/admin/reviews" element={<AdminReviewsPage />} />
+                            <Route path="/admin/reviews/:reviewId" element={<AdminReviewDetailsPage />} />
+                            <Route path="/admin/deliverables" element={<AdminDeliverablesPage />} />
+                            <Route path="/admin/deliverables/:deliverableId" element={<AdminDeliverableDetailsPage />} />
+                            <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
+                        </Route>
+
+                        {/* Gig marketplace */}
+                        <Route path="/dashboard/projects" element={<GigListPage />} />
+                        <Route path="/dashboard/gigs" element={<GigListPage />} />
+                        <Route path="/dashboard/gigs/:gigId" element={<GigDetailPage />} />
+                        <Route
+                            element={<ProtectedRoute allowedRoles={["client"]} />}
+                        >
+                            <Route path="/dashboard/gigs/create" element={<CreateGigPage />} />
+                            <Route path="/dashboard/gigs/my" element={<MyGigsPage />} />
+                            <Route path="/dashboard/gigs/:gigId/proposals" element={<GigProposalsPage />} />
+                        </Route>
+
+                        {/* Proposal tracking */}
+                        <Route
+                            element={<ProtectedRoute allowedRoles={["freelancer"]} />}
+                        >
+                            <Route path="/dashboard/proposals" element={<MyProposalsPage />} />
+                            <Route path="/dashboard/tasks" element={<TasksPage />} />
+                        </Route>
+
+                        {/* Project workspace routes */}
+                        <Route path="/dashboard/my-projects" element={<MyProjectsPage />} />
+                        <Route path="/dashboard/my-projects/:projectId" element={<ProjectWorkspace />} />
+
+                        {/* Placeholder routes for later stages */}
+                        <Route path="/dashboard/messages" element={<MessagesPage />} />
+                        <Route path="/dashboard/payments" element={<PaymentsPage />} />
+                        <Route path="/payments" element={<PaymentsPage />} />
+                        <Route path="/dashboard/browse" element={<ComingSoon title="Browse Talent" />} />
+                        <Route path="/dashboard/users" element={<Navigate to="/admin/users" replace />} />
+                        <Route path="/dashboard/analytics" element={<Navigate to="/admin/analytics" replace />} />
+                        <Route path="/dashboard/settings" element={<ComingSoon title="Settings" />} />
                     </Route>
-
-                    {/* Role-specific dashboard views */}
-                    <Route
-                        path="/dashboard/freelancer"
-                        element={
-                            <ProtectedRoute allowedRoles={["freelancer"]}>
-                                <FreelancerDashboard />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/dashboard/client"
-                        element={
-                            <ProtectedRoute allowedRoles={["client"]}>
-                                <ClientDashboard />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        element={<ProtectedRoute allowedRoles={["admin"]} />}
-                    >
-                        <Route path="/dashboard/admin" element={<AdminDashboard />} />
-                        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                        <Route path="/admin/users" element={<AdminUsersPage />} />
-                        <Route path="/admin/users/:userId" element={<AdminUserDetailsPage />} />
-                        <Route path="/admin/gigs" element={<AdminGigsPage />} />
-                        <Route path="/admin/gigs/:gigId" element={<AdminGigDetailsPage />} />
-                        <Route path="/admin/projects" element={<AdminProjectsPage />} />
-                        <Route path="/admin/projects/:projectId" element={<AdminProjectDetailsPage />} />
-                        <Route path="/admin/reviews" element={<AdminReviewsPage />} />
-                        <Route path="/admin/reviews/:reviewId" element={<AdminReviewDetailsPage />} />
-                        <Route path="/admin/deliverables" element={<AdminDeliverablesPage />} />
-                        <Route path="/admin/deliverables/:deliverableId" element={<AdminDeliverableDetailsPage />} />
-                        <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
-                    </Route>
-
-                    {/* Gig marketplace */}
-                    <Route path="/dashboard/projects" element={<GigListPage />} />
-                    <Route path="/dashboard/gigs" element={<GigListPage />} />
-                    <Route path="/dashboard/gigs/:gigId" element={<GigDetailPage />} />
-                    <Route
-                        element={<ProtectedRoute allowedRoles={["client"]} />}
-                    >
-                        <Route path="/dashboard/gigs/create" element={<CreateGigPage />} />
-                        <Route path="/dashboard/gigs/my" element={<MyGigsPage />} />
-                        <Route path="/dashboard/gigs/:gigId/proposals" element={<GigProposalsPage />} />
-                    </Route>
-
-                    {/* Proposal tracking */}
-                    <Route
-                        element={<ProtectedRoute allowedRoles={["freelancer"]} />}
-                    >
-                        <Route path="/dashboard/proposals" element={<MyProposalsPage />} />
-                        <Route path="/dashboard/tasks" element={<TasksPage />} />
-                    </Route>
-
-                    {/* Project workspace routes */}
-                    <Route path="/dashboard/my-projects" element={<MyProjectsPage />} />
-                    <Route path="/dashboard/my-projects/:projectId" element={<ProjectWorkspace />} />
-
-                    {/* Placeholder routes for later stages */}
-                    <Route path="/dashboard/messages" element={<MessagesPage />} />
-                    <Route path="/dashboard/browse" element={<ComingSoon title="Browse Talent" />} />
-                    <Route path="/dashboard/users" element={<Navigate to="/admin/users" replace />} />
-                    <Route path="/dashboard/analytics" element={<Navigate to="/admin/analytics" replace />} />
-                    <Route path="/dashboard/settings" element={<ComingSoon title="Settings" />} />
                 </Route>
-            </Route>
 
-            {/* Catch-all redirect */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+                {/* Catch-all redirect */}
+                <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
         </SocketProvider>
     );
 }

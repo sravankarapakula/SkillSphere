@@ -3,6 +3,7 @@ const Proposal = require("../models/Proposal.models");
 const Project = require("../models/Project.models");
 const Review = require("../models/Review");
 const User = require("../models/user.models");
+const Payment = require("../models/Payment");
 const Milestone = require("../models/Milestone");
 const { checkAndUpdateOverdueMilestones, enrichMilestone } = require("./milestoneController");
 const asyncHandler = require("../utils/asynchandler");
@@ -19,7 +20,8 @@ const getClientDashboard = asyncHandler(async (req, res) => {
         acceptedProposals,
         pendingProposals,
         activeProjects,
-        completedProjects
+        completedProjects,
+        paymentsResult
     ] = await Promise.all([
         Gig.countDocuments({ client: req.user._id }),
         Gig.countDocuments({ client: req.user._id, status: "open" }),
@@ -28,8 +30,13 @@ const getClientDashboard = asyncHandler(async (req, res) => {
         Proposal.countDocuments({ gig: { $in: gigIds }, status: "accepted" }),
         Proposal.countDocuments({ gig: { $in: gigIds }, status: "pending" }),
         Project.countDocuments({ client: req.user._id, status: { $in: ["active", "in_progress", "revision"] } }),
-        Project.countDocuments({ client: req.user._id, status: "completed" })
+        Project.countDocuments({ client: req.user._id, status: "completed" }),
+        Payment.aggregate([
+            { $match: { clientId: req.user._id, status: "completed" } },
+            { $group: { _id: null, total: { $sum: "$amount" } } }
+        ])
     ]);
+    const totalPaymentsMade = paymentsResult[0]?.total || 0;
 
     // Fetch active projects to run overdue sweep
     const activeProjectsList = await Project.find({
@@ -155,7 +162,8 @@ const getClientDashboard = asyncHandler(async (req, res) => {
             needsAttention,
             averageRating: req.user.clientRating || 0,
             totalReviews: req.user.clientReviewCount || 0,
-            pendingReviews
+            pendingReviews,
+            totalPaymentsMade
         }
     });
 });
@@ -167,15 +175,21 @@ const getFreelancerDashboard = asyncHandler(async (req, res) => {
         rejectedProposals,
         pendingProposals,
         activeProjects,
-        completedProjects
+        completedProjects,
+        earningsResult
     ] = await Promise.all([
         Proposal.countDocuments({ freelancer: req.user._id }),
         Proposal.countDocuments({ freelancer: req.user._id, status: "accepted" }),
         Proposal.countDocuments({ freelancer: req.user._id, status: "rejected" }),
         Proposal.countDocuments({ freelancer: req.user._id, status: "pending" }),
         Project.countDocuments({ freelancer: req.user._id, status: { $in: ["active", "in_progress", "revision"] } }),
-        Project.countDocuments({ freelancer: req.user._id, status: "completed" })
+        Project.countDocuments({ freelancer: req.user._id, status: "completed" }),
+        Payment.aggregate([
+            { $match: { freelancerId: req.user._id, status: "completed" } },
+            { $group: { _id: null, total: { $sum: "$amount" } } }
+        ])
     ]);
+    const totalEarnings = earningsResult[0]?.total || 0;
 
     // Fetch active projects to run overdue sweep
     const activeProjectsList = await Project.find({
@@ -241,7 +255,8 @@ const getFreelancerDashboard = asyncHandler(async (req, res) => {
             awaitingApproval,
             averageRating: req.user.freelancerRating || 0,
             totalReviews: req.user.freelancerReviewCount || 0,
-            pendingReviews
+            pendingReviews,
+            totalEarnings
         }
     });
 });
@@ -254,7 +269,11 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
         totalGigs,
         totalProposals,
         openProjects,
-        activeProjects
+        activeProjects,
+        totalTransactions,
+        successfulPayments,
+        failedPayments,
+        revenueResult
     ] = await Promise.all([
         User.countDocuments(),
         User.countDocuments({ role: "freelancer" }),
@@ -262,8 +281,16 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
         Gig.countDocuments(),
         Proposal.countDocuments(),
         Gig.countDocuments({ status: "open" }),
-        Project.countDocuments({ status: { $in: ["active", "in_progress"] } })
+        Project.countDocuments({ status: { $in: ["active", "in_progress"] } }),
+        Payment.countDocuments(),
+        Payment.countDocuments({ status: "completed" }),
+        Payment.countDocuments({ status: "failed" }),
+        Payment.aggregate([
+            { $match: { status: "completed" } },
+            { $group: { _id: null, total: { $sum: "$amount" } } }
+        ])
     ]);
+    const revenue = revenueResult[0]?.total || 0;
 
     res.status(200).json({
         success: true,
@@ -274,7 +301,11 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
             totalGigs,
             totalProposals,
             openProjects,
-            activeProjects
+            activeProjects,
+            totalTransactions,
+            successfulPayments,
+            failedPayments,
+            revenue
         }
     });
 });

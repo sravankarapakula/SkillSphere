@@ -14,7 +14,8 @@ import {
     HiOutlineXMark,
     HiOutlineMagnifyingGlass,
     HiOutlineFolderOpen,
-    HiOutlineQueueList
+    HiOutlineQueueList,
+    HiOutlineCreditCard
 } from "react-icons/hi2";
 
 const freelancerLinks = [
@@ -25,6 +26,7 @@ const freelancerLinks = [
     { to: "/dashboard/my-projects", label: "My Projects", icon: HiOutlineFolderOpen },
     { to: "/dashboard/tasks", label: "Tasks", icon: HiOutlineQueueList },
     { to: "/dashboard/messages", label: "Messages", icon: HiOutlineChatBubbleLeftRight },
+    { to: "/dashboard/payments", label: "My Earnings", icon: HiOutlineCreditCard },
     { to: "/dashboard/settings", label: "Settings", icon: HiOutlineCog6Tooth }
 ];
 
@@ -34,6 +36,7 @@ const clientLinks = [
     { to: "/dashboard/gigs/my", label: "My Gigs", icon: HiOutlineBriefcase },
     { to: "/dashboard/my-projects", label: "My Projects", icon: HiOutlineFolderOpen },
     { to: "/dashboard/messages", label: "Messages", icon: HiOutlineChatBubbleLeftRight },
+    { to: "/dashboard/payments", label: "My Payments", icon: HiOutlineCreditCard },
     { to: "/dashboard/settings", label: "Settings", icon: HiOutlineCog6Tooth }
 ];
 
@@ -45,6 +48,7 @@ const adminLinks = [
     { to: "/admin/projects", label: "Projects", icon: HiOutlineFolderOpen },
     { to: "/admin/reviews", label: "Reviews", icon: HiOutlineStar },
     { to: "/admin/deliverables", label: "Deliverables", icon: HiOutlineDocumentCheck },
+    { to: "/dashboard/payments", label: "Transactions", icon: HiOutlineCreditCard },
     { to: "/dashboard/settings", label: "Settings", icon: HiOutlineCog6Tooth }
 ];
 
@@ -140,7 +144,7 @@ export default function Sidebar({ isOpen, onClose }) {
                     </div>
                 </nav>
 
-                {/* Bottom: User info (never overlaps — uses flex, not absolute) */}
+                {/* Bottom: User info */}
                 <div className="flex-shrink-0 p-3 border-t border-surface-200">
                     <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-surface-50 transition">
                         <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">

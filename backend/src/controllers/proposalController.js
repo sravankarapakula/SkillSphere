@@ -281,6 +281,8 @@ const acceptProposal = asyncHandler(async (req, res) => {
         client: gig.client,
         freelancer: proposal.freelancer._id,
         agreedAmount: proposal.bidAmount,
+        paymentAmount: proposal.bidAmount || 0,
+        paymentStatus: "unpaid",
         estimatedDays: expectedDays,
         status: "active",
         progressPercentage: 0,

@@ -16,7 +16,8 @@ import {
     HiOutlineCalendarDays,
     HiOutlineClock,
     HiOutlineDocumentCheck,
-    HiOutlineStar
+    HiOutlineStar,
+    HiOutlineCreditCard
 } from "react-icons/hi2";
 import { useFreelancerDashboard } from "../../hooks/useDashboardStats";
 import { getUpcomingTasks } from "../../api/taskApi";
@@ -145,6 +146,13 @@ export default function FreelancerDashboard() {
     }, [stats]);
 
     const cards = [
+        {
+            label: "Total Earnings",
+            value: stats?.totalEarnings ? `₹${stats.totalEarnings.toLocaleString()}` : "₹0",
+            icon: HiOutlineCreditCard,
+            color: "text-emerald-600 bg-emerald-50",
+            to: "/dashboard/payments"
+        },
         {
             label: "Gigs Applied",
             value: stats?.gigsApplied || 0,

@@ -33,6 +33,9 @@ import {
 import {
     updateUserRatings
 } from "../../redux/slices/authSlice";
+import {
+    receiveSocketPaymentSuccess
+} from "../../redux/slices/paymentSlice";
 
 export default function SocketProvider({ children }) {
     const { token, user } = useSelector((state) => state.auth);
@@ -124,6 +127,20 @@ export default function SocketProvider({ children }) {
 
         const handleProjectUpdated = (payload) => {
             dispatch(applySocketProjectUpdate(payload));
+        };
+
+        const handlePaymentSuccess = (payload) => {
+            dispatch(receiveSocketPaymentSuccess(payload));
+            if (payload.project) {
+                dispatch(applySocketProjectUpdate({ project: payload.project }));
+            }
+        };
+
+        const handlePaymentUpdated = (payload) => {
+            dispatch(receiveSocketPaymentSuccess(payload));
+            if (payload.project) {
+                dispatch(applySocketProjectUpdate({ project: payload.project }));
+            }
         };
 
         const handleMilestoneCreated = (payload) => {
@@ -238,6 +255,8 @@ export default function SocketProvider({ children }) {
         socket.on("deliverable_submitted", handleDeliverableSubmitted);
         socket.on("deliverable_reviewed", handleDeliverableReviewed);
         socket.on("review_created", handleReviewCreated);
+        socket.on("payment_success", handlePaymentSuccess);
+        socket.on("payment_updated", handlePaymentUpdated);
 
         if (socket.connected) {
             handleConnect();
@@ -273,6 +292,8 @@ export default function SocketProvider({ children }) {
             socket.off("deliverable_submitted", handleDeliverableSubmitted);
             socket.off("deliverable_reviewed", handleDeliverableReviewed);
             socket.off("review_created", handleReviewCreated);
+            socket.off("payment_success", handlePaymentSuccess);
+            socket.off("payment_updated", handlePaymentUpdated);
             disconnectSocket();
             dispatch(setSocketConnected(false));
         };

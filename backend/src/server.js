@@ -1,13 +1,19 @@
-const http = require("http");
-const mongoose = require("mongoose");
 const dotenv = require("dotenv");
-const app = require("./app");
 const path = require("path");
-const initializeSocket = require("./socket/socketServer");
 
 dotenv.config({
     path: path.resolve(__dirname, "../.env")
 });
+
+const http = require("http");
+const mongoose = require("mongoose");
+const app = require("./app");
+const initializeSocket = require("./socket/socketServer");
+
+
+// console.log("CWD:", process.cwd());
+// console.log("ENV RESULT:", dotenv.config());
+
 
 const PORT = process.env.PORT || 5000;
 
