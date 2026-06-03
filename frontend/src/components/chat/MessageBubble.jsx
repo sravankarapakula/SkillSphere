@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { downloadFile } from "../../utils/downloadHelper";
 
 function MessageBubble({ message, isOwn }) {
     const formattedTime = new Date(message.createdAt).toLocaleTimeString([], {
@@ -37,9 +38,11 @@ function MessageBubble({ message, isOwn }) {
                             {attachments.map((attachment) => (
                                 <a
                                     key={attachment.url}
-                                    href={attachment.url}
-                                    target="_blank"
-                                    rel="noreferrer"
+                                    href="#"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        downloadFile(attachment.url, attachment.filename, attachment.mimetype);
+                                    }}
                                     className={`block rounded-lg px-3 py-2 text-xs font-semibold underline-offset-2 hover:underline ${
                                         isOwn ? "bg-surface-50 text-primary-700" : "bg-white/10 text-white"
                                     }`}

@@ -17,6 +17,7 @@ import {
     HiOutlineStar
 } from "react-icons/hi2";
 import StarRating from "../../components/reviews/StarRating";
+import { viewFileInNewTab } from "../../utils/downloadHelper";
 
 export default function ProfilePage() {
     const dispatch = useDispatch();
@@ -160,6 +161,7 @@ export default function ProfilePage() {
                                     </div>
                                 </div>
                             )}
+
                         </div>
                     )}
 
@@ -173,9 +175,11 @@ export default function ProfilePage() {
                                 Resume
                             </h3>
                             <a
-                                href={profile.resume}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                href="#"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    viewFileInNewTab(profile.resume, "application/pdf");
+                                }}
                                 className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 font-medium"
                             >
                                 <HiOutlineDocumentText className="h-4 w-4" />

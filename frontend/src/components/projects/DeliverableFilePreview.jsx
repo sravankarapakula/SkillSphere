@@ -7,6 +7,7 @@ import {
     HiOutlineCodeBracket,
     HiOutlineFilm
 } from "react-icons/hi2";
+import { downloadFile } from "../../utils/downloadHelper";
 
 const getFileCategory = (fileType) => {
     if (!fileType) return "default";
@@ -51,9 +52,8 @@ export default function DeliverableFilePreview({ files = [], compact = false }) 
                     return (
                         <a
                             key={file._id || file.url}
-                            href={file.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href="#"
+                            onClick={(e) => { e.preventDefault(); downloadFile(file.url, file.fileName, file.fileType); }}
                             className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all hover:shadow-sm ${color}`}
                             title={file.fileName}
                         >
@@ -105,9 +105,8 @@ export default function DeliverableFilePreview({ files = [], compact = false }) 
                                 </div>
                             </div>
                             <a
-                                href={file.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                href="#"
+                                onClick={(e) => { e.preventDefault(); downloadFile(file.url, file.fileName, file.fileType); }}
                                 className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 border border-surface-150 hover:border-primary-200 rounded-xl transition-all opacity-0 group-hover:opacity-100"
                                 title={`Download ${file.fileName}`}
                             >

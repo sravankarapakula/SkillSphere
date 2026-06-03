@@ -5,6 +5,7 @@ import { HiOutlineArrowDownTray, HiOutlineEye, HiOutlineMagnifyingGlass } from "
 import { fetchAdminDeliverables } from "../../redux/slices/adminSlice";
 import { AdminPageHeader, AdminSelect, FilterBar, StatusBadge, TableShell } from "./AdminShared";
 import { formatDate } from "./adminFormat";
+import { downloadFile } from "../../utils/downloadHelper";
 
 const statusLabel = (status) => status === "submitted" ? "Pending Review" : status;
 
@@ -53,7 +54,23 @@ export default function AdminDeliverablesPage() {
                                 <td className="px-4 py-3">
                                     <div className="flex gap-2">
                                         <Link title="View" to={`/admin/deliverables/${deliverable._id}`} className="p-2 rounded-lg hover:bg-surface-100 text-surface-600"><HiOutlineEye /></Link>
-                                        {deliverable.files?.[0]?.url && <a title="Download" href={deliverable.files[0].url} target="_blank" rel="noreferrer" className="p-2 rounded-lg hover:bg-surface-100 text-surface-600"><HiOutlineArrowDownTray /></a>}
+                                        {deliverable.files?.[0]?.url && (
+                                            <a
+                                                title="Download"
+                                                href="#"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    downloadFile(
+                                                        deliverable.files[0].url,
+                                                        deliverable.files[0].fileName,
+                                                        deliverable.files[0].fileType
+                                                    );
+                                                }}
+                                                className="p-2 rounded-lg hover:bg-surface-100 text-surface-600"
+                                            >
+                                                <HiOutlineArrowDownTray />
+                                            </a>
+                                        )}
                                         <Link title="Investigate" to={`/admin/projects/${deliverable.project?._id}`} className="p-2 rounded-lg hover:bg-surface-100 text-surface-600"><HiOutlineMagnifyingGlass /></Link>
                                     </div>
                                 </td>
