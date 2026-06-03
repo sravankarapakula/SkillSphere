@@ -6,6 +6,7 @@ const User = require("../models/user.models");
 const { generateTokenPair } = require("../utils/generateToken");
 const asyncHandler = require("../utils/asynchandler");
 const AppError = require("../utils/AppError.utils");
+const { verifyGoogleToken } = require("../utils/googleAuth");
 
 
 const getPublicUser = (user) => ({
@@ -14,6 +15,8 @@ const getPublicUser = (user) => ({
     email: user.email,
     role: user.role,
     isSuspended: user.isSuspended,
+    profileImage: user.profileImage || "",
+    profilePicture: user.profilePicture || "",
     freelancerRating: user.freelancerRating,
     freelancerReviewCount: user.freelancerReviewCount,
     clientRating: user.clientRating,
@@ -176,9 +179,84 @@ const refreshAuthTokens = asyncHandler(async (req, res) => {
     });
 });
 
+const googleLoginController = asyncHandler(async (req, res) => {
+    const { credential } = req.body;
+
+    if (!credential) {
+        return res.status(400).json({
+            success: false,
+            message: "Google credential token is required"
+        });
+    }
+
+    // Verify token
+    const googleUser = await verifyGoogleToken(credential);
+
+    // Find existing user by email
+    let user = await User.findOne({ email: googleUser.email });
+
+    if (user) {
+        let isModified = false;
+        
+        if (user.authProvider !== "google") {
+            user.authProvider = "google";
+            isModified = true;
+        }
+        if (!user.googleId) {
+            user.googleId = googleUser.googleId;
+            isModified = true;
+        }
+        
+        // Preserve existing profile image / picture (only set if not already present)
+        if (!user.profilePicture) {
+            user.profilePicture = googleUser.picture;
+            isModified = true;
+        }
+        if (!user.profileImage) {
+            user.profileImage = googleUser.picture;
+            isModified = true;
+        }
+
+        if (isModified) {
+            await user.save();
+        }
+        
+        if (user.isSuspended) {
+            return res.status(403).json({
+                success: false,
+                message: "Your account has been suspended"
+            });
+        }
+    } else {
+        // Create new user (preserves existing roles, defaults role to "client")
+        user = await User.create({
+            name: googleUser.name,
+            email: googleUser.email,
+            profilePicture: googleUser.picture,
+            profileImage: googleUser.picture,
+            authProvider: "google",
+            googleId: googleUser.googleId,
+            role: "client"
+        });
+    }
+
+    // Generate JWT access & refresh tokens
+    const tokens = generateTokenPair(user._id, user.role);
+
+    res.status(200).json({
+        success: true,
+        message: "Google login successful",
+        data: {
+            ...tokens,
+            user: getPublicUser(user)
+        }
+    });
+});
+
 module.exports = {
     registerUser,
     loginUser,
     getMe,
-    refreshAuthTokens
+    refreshAuthTokens,
+    googleLoginController
 };

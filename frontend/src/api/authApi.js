@@ -17,3 +17,9 @@ export const getMe = async () => {
     const response = await API.get("/api/auth/me");
     return response.data;
 };
+
+// Login via Google OAuth
+export const googleLogin = async (credential) => {
+    const response = await API.post("/api/auth/google", { credential });
+    return response.data;
+};

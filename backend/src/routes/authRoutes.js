@@ -4,7 +4,8 @@ const {
     registerUser,
     loginUser,
     getMe,
-    refreshAuthTokens
+    refreshAuthTokens,
+    googleLoginController
 } = require("../controllers/authController");
 
 const protect = require("../middleware/authMiddleware");
@@ -42,6 +43,13 @@ router.post(
     body("refreshToken").notEmpty(),
     validateRequest,
     refreshAuthTokens
+);
+
+router.post(
+    "/google",
+    body("credential").notEmpty(),
+    validateRequest,
+    googleLoginController
 );
 
 module.exports = router;

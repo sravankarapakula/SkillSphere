@@ -64,6 +64,27 @@ export const login = createAsyncThunk(
     }
 );
 
+// Google Login thunk
+export const googleLogin = createAsyncThunk(
+    "auth/googleLogin",
+    async (credential, thunkAPI) => {
+        try {
+            const data = await authApi.googleLogin(credential);
+            if (data.success) {
+                storeAuth({
+                    ...data.data,
+                    rememberMe: false
+                });
+            }
+            return data;
+        } catch (error) {
+            const message =
+                error.response?.data?.message || error.message || "Google Login failed";
+            return thunkAPI.rejectWithValue(message);
+        }
+    }
+);
+
 // Load user from JWT thunk
 export const loadUser = createAsyncThunk(
     "auth/loadUser",
@@ -146,6 +167,25 @@ const authSlice = createSlice({
                 state.token = action.payload.data.accessToken;
             })
             .addCase(login.rejected, (state, action) => {
+                state.isLoading = false;
+                state.isError = true;
+                state.message = action.payload;
+                state.user = null;
+                state.token = null;
+            })
+            // Google Login
+            .addCase(googleLogin.pending, (state) => {
+                state.isLoading = true;
+                state.isError = false;
+                state.message = "";
+            })
+            .addCase(googleLogin.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.isSuccess = true;
+                state.user = action.payload.data.user;
+                state.token = action.payload.data.accessToken;
+            })
+            .addCase(googleLogin.rejected, (state, action) => {
                 state.isLoading = false;
                 state.isError = true;
                 state.message = action.payload;

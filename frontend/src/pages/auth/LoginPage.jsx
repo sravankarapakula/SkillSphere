@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { login, reset } from "../../redux/slices/authSlice";
+import { login, reset, googleLogin } from "../../redux/slices/authSlice";
+import { GoogleLogin } from "@react-oauth/google";
 import AuthFormInput from "../../components/auth/AuthFormInput";
 import Button from "../../components/shared/Button";
 import toast from "react-hot-toast";
@@ -57,6 +58,18 @@ export default function LoginPage() {
         if (errors[id]) {
             setErrors((prev) => ({ ...prev, [id]: "" }));
         }
+    };
+
+    const handleGoogleSuccess = (credentialResponse) => {
+        if (credentialResponse.credential) {
+            dispatch(googleLogin(credentialResponse.credential));
+        } else {
+            toast.error("Google authentication failed");
+        }
+    };
+
+    const handleGoogleFailure = () => {
+        toast.error("Google login failed");
     };
 
     const handleSubmit = (e) => {
@@ -143,6 +156,24 @@ export default function LoginPage() {
                     Sign In
                 </Button>
             </form>
+
+            <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-surface-200" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-surface-500">
+                        Or continue with
+                    </span>
+                </div>
+            </div>
+
+            <div className="flex justify-center">
+                <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleFailure}
+                />
+            </div>
 
             <p className="text-center text-sm text-surface-500 mt-8">
                 Don&apos;t have an account?{" "}
